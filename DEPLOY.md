@@ -11,8 +11,8 @@
                         └── CloudBase SDK ──► CloudBase PostgreSQL
 ```
 
-- **前端**：EdgeOne Pages 静态站点（`.edgeone/assets/`）
-- **后端**：EdgeOne Pages Cloud Functions（`.edgeone/cloud-functions/api-node/`）
+- **前端**：EdgeOne Pages 静态站点（`workschedule-web/dist`）
+- **后端**：EdgeOne Pages Cloud Functions（`cloud-functions/api/[[default]].js`）
 - **数据库**：CloudBase PostgreSQL（云数据库）
 
 ## 前置准备
@@ -75,7 +75,7 @@ PORT=3000
 | 配置项 | 值 |
 |--------|-----|
 | 构建命令 | `npm run build:edgeone` |
-| 输出目录 | `./.edgeone` |
+| 输出目录 | `./workschedule-web/dist` |
 | Node 版本 | `22.11.0`（或更高） |
 
 5. 在环境变量面板添加上述 4 个环境变量。
@@ -94,30 +94,26 @@ npm run build:edgeone
 
 ```bash
 cd workschedule-web && rm -f package-lock.json && rm -rf node_modules && npm install && if [ "$(uname -s)" = "Linux" ]; then npm install --no-save @rolldown/binding-linux-x64-gnu; fi && npm run build
-cd .. && rm -rf .edgeone && mkdir -p .edgeone/assets && cp -r workschedule-web/dist/* .edgeone/assets/
-cd workschedule-api && npm ci && npm run build:edgeone
+cd ../workschedule-api && npm ci && npm run build:edgeone
 ```
 
 > 前端 `package-lock.json` 在 Windows 本地生成，锁的是 Windows 原生依赖；EdgeOne Pages 构建环境为 Linux，直接沿用 lockfile 会导致 `rolldown` 找不到 Linux 绑定。因此前端构建时会先删除 lockfile 与 `node_modules`，并在 Linux 下显式补装 `@rolldown/binding-linux-x64-gnu`。
 > 后端仍使用 `npm ci` 沿用现有 `package-lock.json`，避免无锁安装导致 transitive 依赖版本漂移。
 
-最终会在仓库根目录生成 `.edgeone/` 目录，符合 EdgeOne Pages [Build Output API](https://pages.edgeone.ai/document/building-output-configuration) 标准：
+最终会在仓库根目录生成 `cloud-functions/api/` 目录，这是 EdgeOne Pages Cloud Functions 的标准源码目录：
 
 ```
-.edgeone/
-├── assets/                              # 前端静态资源
-│   └── index.html
-└── cloud-functions/
-    └── api-node/                        # Node.js API 函数
-        ├── index.mjs                    # 函数入口
-        ├── dist/                        # NestJS 构建产物
-        ├── node_modules/                # 生产依赖
-        ├── package.json
-        ├── package-lock.json
-        └── config.json                  # 函数路由配置
+cloud-functions/
+└── api/
+    ├── [[default]].js      # EdgeOne Pages Cloud Functions 入口（Express 实例）
+    ├── dist/               # NestJS 构建产物
+    ├── package.json        # 生产依赖声明
+    └── package-lock.json   # 版本锁定
 ```
 
 > 当前生产依赖包体积约 106MB，低于 EdgeOne Pages Cloud Functions 128MB 限制。
+
+> **注意**：`cloud-functions/api/` 是 EdgeOne Pages Cloud Functions 的源码目录，Git 集成部署时平台需要在仓库中能看到它。首次部署前请在本地执行 `npm run build:edgeone`，然后将生成的 `cloud-functions/api/` 一并提交到 Git；后续 push 时构建命令会重新生成该目录。
 
 ### 3. 绑定自定义域名
 
