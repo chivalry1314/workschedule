@@ -27,7 +27,7 @@ jobs:
 
       - name: 安装 CloudBase CLI 与部署插件
         run: |
-          npm install -g @cloudbase/cli
+          npm install -g @cloudbase/cli@2.10.0
           mkdir -p "$HOME/cloudbase-framework/registry"
           cd "$HOME/cloudbase-framework/registry"
           npm init -y
@@ -87,7 +87,7 @@ jobs:
       - name: 安装 CloudBase CLI 与部署插件
         if: steps.check_api_url.outputs.missing == 'false'
         run: |
-          npm install -g @cloudbase/cli
+          npm install -g @cloudbase/cli@2.10.0
           mkdir -p "$HOME/cloudbase-framework/registry"
           cd "$HOME/cloudbase-framework/registry"
           npm init -y
