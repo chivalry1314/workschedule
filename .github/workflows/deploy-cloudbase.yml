@@ -20,7 +20,7 @@ jobs:
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: |
             workschedule-api/package-lock.json
@@ -28,11 +28,18 @@ jobs:
       - name: 安装 CloudBase CLI
         run: npm install -g @cloudbase/cli
 
-      - name: 构建并部署后端
-        working-directory: workschedule-api
+      - name: 登录 CloudBase
         env:
           TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
           TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+        run: |
+          printf '%s' "$TENCENTCLOUD_SECRETID" > /tmp/secret_id
+          printf '%s' "$TENCENTCLOUD_SECRETKEY" > /tmp/secret_key
+          cloudbase login --key --secretId "$(cat /tmp/secret_id)" --secretKey "$(cat /tmp/secret_key)"
+
+      - name: 构建并部署后端
+        working-directory: workschedule-api
+        env:
           CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
           CLOUDBASE_APIKEY: ${{ secrets.CLOUDBASE_APIKEY }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
@@ -67,7 +74,7 @@ jobs:
         if: steps.check_api_url.outputs.missing == 'false'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: |
             workschedule-web/package-lock.json
@@ -76,12 +83,20 @@ jobs:
         if: steps.check_api_url.outputs.missing == 'false'
         run: npm install -g @cloudbase/cli
 
+      - name: 登录 CloudBase
+        if: steps.check_api_url.outputs.missing == 'false'
+        env:
+          TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
+          TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+        run: |
+          printf '%s' "$TENCENTCLOUD_SECRETID" > /tmp/secret_id
+          printf '%s' "$TENCENTCLOUD_SECRETKEY" > /tmp/secret_key
+          cloudbase login --key --secretId "$(cat /tmp/secret_id)" --secretKey "$(cat /tmp/secret_key)"
+
       - name: 构建并部署前端
         if: steps.check_api_url.outputs.missing == 'false'
         working-directory: workschedule-web
         env:
-          TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
-          TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
           CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |

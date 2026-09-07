@@ -91,8 +91,8 @@ npm run dev
 | Name | 说明 |
 |------|------|
 | `CLOUDBASE_ENV_ID` | CloudBase 环境 ID |
-| `TENCENTCLOUD_SECRETID` | 腾讯云 API 密钥 SecretId |
-| `TENCENTCLOUD_SECRETKEY` | 腾讯云 API 密钥 SecretKey |
+| `TENCENTCLOUD_SECRETID` | 腾讯云 API 密钥 SecretId（CloudBase CLI 登录用） |
+| `TENCENTCLOUD_SECRETKEY` | 腾讯云 API 密钥 SecretKey（CloudBase CLI 登录用） |
 | `CLOUDBASE_APIKEY` | CloudBase API Key（后端云函数运行时初始化 SDK 使用） |
 | `JWT_SECRET` | JWT 签名密钥（至少 32 位随机字符串） |
 | `JWT_EXPIRES_IN` | JWT 有效期，如 `2h` |
