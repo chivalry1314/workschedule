@@ -5,6 +5,7 @@ node_modules/
 
 # Build outputs
 dist/
+!cloud-functions/api/dist/
 dist-ssr/
 *.tsbuildinfo
 .edgeone/
