@@ -11,7 +11,7 @@
           "functions": [
             {
               "name": "workschedule-api",
-              "functionPath": ".",
+              "functionDistPath": ".",
               "handler": "serverless/scf-handler.main_handler",
               "runtime": "Nodejs16.13",
               "memorySize": 512,
