@@ -1,0 +1,43 @@
+import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
+import { AppModule } from './app.module.js';
+import { UsersService } from './users/users.service.js';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
+  app.setGlobalPrefix('api/v1');
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  app.useGlobalInterceptors(new TransformInterceptor());
+
+  // 等待 CloudBase SDK 初始化完成
+  await app.init();
+
+  // 插入默认管理员（需先在 CloudBase 控制台执行 schema.sql 建表）
+  try {
+    const usersService = app.get(UsersService);
+    await usersService.seedAdmin();
+  } catch (err: any) {
+    console.error(
+      '[Bootstrap] 初始化默认管理员失败，请确认已在 CloudBase 控制台执行 scripts/schema.sql：',
+      err?.message || err,
+    );
+  }
+
+  await app.listen(process.env.PORT ?? 3000);
+}
+await bootstrap();

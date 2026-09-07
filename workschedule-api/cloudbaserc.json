@@ -1,0 +1,36 @@
+{
+  "version": "2.0",
+  "envId": "your-env-id",
+  "framework": {
+    "name": "workschedule-api",
+    "plugins": {
+      "server": {
+        "use": "@cloudbase/framework-plugin-function",
+        "inputs": {
+          "functionRootPath": ".",
+          "functions": [
+            {
+              "name": "workschedule-api",
+              "functionPath": ".",
+              "handler": "serverless/scf-handler.main_handler",
+              "runtime": "Nodejs16.13",
+              "memorySize": 512,
+              "timeout": 30,
+              "envVariables": {
+                "CLOUDBASE_ENV_ID": "{{env.CLOUDBASE_ENV_ID}}",
+                "CLOUDBASE_APIKEY": "{{env.CLOUDBASE_APIKEY}}",
+                "TENCENTCLOUD_SECRETID": "{{env.TENCENTCLOUD_SECRETID}}",
+                "TENCENTCLOUD_SECRETKEY": "{{env.TENCENTCLOUD_SECRETKEY}}",
+                "JWT_SECRET": "{{env.JWT_SECRET}}",
+                "JWT_EXPIRES_IN": "{{env.JWT_EXPIRES_IN}}"
+              }
+            }
+          ],
+          "servicePaths": {
+            "workschedule-api": "/api"
+          }
+        }
+      }
+    }
+  }
+}
