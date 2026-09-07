@@ -25,8 +25,9 @@ jobs:
           cache-dependency-path: |
             workschedule-api/package-lock.json
 
-      - name: 安装 CloudBase CLI
-        run: npm install -g @cloudbase/cli
+      - name: 安装 CloudBase CLI 与部署插件
+        run: |
+          npm install -g @cloudbase/cli @cloudbase/framework-plugin-function @cloudbase/framework-plugin-website
 
       - name: 登录 CloudBase
         env:
@@ -79,9 +80,10 @@ jobs:
           cache-dependency-path: |
             workschedule-web/package-lock.json
 
-      - name: 安装 CloudBase CLI
+      - name: 安装 CloudBase CLI 与部署插件
         if: steps.check_api_url.outputs.missing == 'false'
-        run: npm install -g @cloudbase/cli
+        run: |
+          npm install -g @cloudbase/cli @cloudbase/framework-plugin-function @cloudbase/framework-plugin-website
 
       - name: 登录 CloudBase
         if: steps.check_api_url.outputs.missing == 'false'
