@@ -36,7 +36,8 @@ jobs:
         run: |
           rm -rf .deploy
           mkdir -p .deploy
-          cp package.json package-lock.json .deploy/
+          cp package.json package-lock.json scf_bootstrap .deploy/
+          chmod +x .deploy/scf_bootstrap
           cp -r dist .deploy/
           cd .deploy
           npm ci --omit=dev
