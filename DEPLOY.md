@@ -1,29 +1,35 @@
-# 部署指南（腾讯云 CloudBase）
+# 部署指南（EdgeOne Pages + CloudBase PostgreSQL）
 
-> 如需将前端部署到 GitHub Pages，请参见 [DEPLOY_GITHUB_PAGES.md](DEPLOY_GITHUB_PAGES.md)（后端仍部署在 CloudBase）。
+本项目采用 **EdgeOne Pages** 作为前端静态托管与后端函数运行时，数据库继续使用 **腾讯云 CloudBase PostgreSQL**。
+
+## 部署架构
+
+```
+用户 ──► EdgeOne Pages（域名）
+        ├── 静态页面 /api/* 以外的请求 → 前端 Vue 3 应用
+        └── /api/* 请求 → EdgeOne Pages Cloud Functions（NestJS）
+                        └── CloudBase SDK ──► CloudBase PostgreSQL
+```
+
+- **前端**：EdgeOne Pages 静态站点（`workschedule-web/dist`）
+- **后端**：EdgeOne Pages Cloud Functions（`cloud-functions/api/[[default]].js`）
+- **数据库**：CloudBase PostgreSQL（云数据库）
 
 ## 前置准备
 
-1. 注册腾讯云账号，开通 [CloudBase 云开发](https://console.cloud.tencent.com/tcb)。
-2. 安装 CloudBase CLI：
-   ```bash
-   npm install -g @cloudbase/cli
-   ```
-3. 登录 CloudBase：
-   ```bash
-   cloudbase login
-   ```
-4. 创建 CloudBase 环境，记录环境 ID（`envId`）。
-5. 在 CloudBase 控制台开通 **PostgreSQL 云数据库**。
-6. 准备一个已备案的域名（国内访问需要 ICP 备案）。
-7. 准备腾讯云 API 密钥：
-   - 访问 [腾讯云 API 密钥管理](https://console.cloud.tencent.com/cam/capi)
-   - 创建 `SecretId` 和 `SecretKey`
-   - 或创建 CloudBase **API Key**（推荐用于 Web 云函数）
+1. 一个已推送到 GitHub 的仓库（例如 `https://github.com/chivalry1314/workschedule.git`）。
+2. 注册/登录 [腾讯云 EdgeOne 控制台](https://console.cloud.tencent.com/edgeone)。
+3. 注册/登录 [腾讯云 CloudBase 控制台](https://console.cloud.tencent.com/tcb)，创建环境并开通 **PostgreSQL 云数据库**。
+4. 在 CloudBase 控制台获取：
+   - **环境 ID**（`envId`，如 `inworkscheduler-d9faw584aa2515b9`）
+   - **API Key**：进入对应环境 → 云后台 → API Key → 新建/复制 Key
+5. 准备一个已备案的域名（国内访问需要 ICP 备案），EdgeOne Pages 支持绑定自定义域名。
 
-## 环境变量配置
+## 环境变量
 
-在 CloudBase 控制台 → 云函数 → 函数配置 → 环境变量中添加：
+### 线上（EdgeOne Pages 控制台）
+
+在 EdgeOne Pages 项目 → **设置 → 环境变量** 中添加：
 
 ```
 CLOUDBASE_ENV_ID=your-env-id
@@ -32,156 +38,87 @@ JWT_SECRET=你的JWT密钥（至少32位随机字符串）
 JWT_EXPIRES_IN=2h
 ```
 
-> Web 云函数（HTTP 云函数）不会自动注入 `TENCENTCLOUD_SECRETID`/`TENCENTCLOUD_SECRETKEY`，因此**推荐配置 `CLOUDBASE_APIKEY`**。
+> 前端构建不需要 `VITE_API_BASE_URL`，因为前端默认走同域名相对路径 `/api/v1`，由 EdgeOne Pages 的函数路由接管。
 
-本地开发环境变量（`workschedule-api/.env`）：
+### 本地开发（workschedule-api/.env）
 
 ```env
 CLOUDBASE_ENV_ID=your-env-id
-TENCENTCLOUD_SECRETID=your-secret-id
-TENCENTCLOUD_SECRETKEY=your-secret-key
+CLOUDBASE_APIKEY=your-api-key
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRES_IN=2h
 PORT=3000
 ```
 
-## 修改配置
+> 本地开发通过 CloudBase SDK 访问 CloudBase PostgreSQL，需确保本地 IP 已加入数据库白名单。
 
-1. 修改 `workschedule-web/cloudbaserc.json` 中的 `envId` 和 `customDomains` 为你的实际环境 ID 和域名。
-2. 修改 `workschedule-api/cloudbaserc.json` 中的 `envId` 为你的实际环境 ID。
+## 数据库初始化
 
-## 本地开发
-
-### 后端
-
-```bash
-cd workschedule-api
-
-# 1. 创建 .env 文件（参考 .env.example）
-# 2. 安装依赖（如果还没安装）
-npm install
-
-# 3. 启动开发服务器（启动时会自动创建表并插入默认管理员）
-npm run start:dev
-```
-
-后端默认运行在 http://localhost:3000，API 前缀 `/api/v1`。
-
-> 注意：本地开发通过 CloudBase SDK 访问 CloudBase PostgreSQL，需确保本地 IP 已加入数据库白名单。
-
-### 前端
-
-```bash
-cd workschedule-web
-npm run dev
-```
-
-前端默认运行在 http://localhost:5173，已配置代理到后端。
-
-## 生产部署
-
-### 方式一：GitHub Actions 自动部署（推荐）
-
-本仓库已配置 `.github/workflows/deploy-cloudbase.yml`，push 到 `main` 分支且改动涉及 `workschedule-api/`、`workschedule-web/` 或 workflow 文件时，会自动触发部署。
-
-#### 1. 配置仓库 Secrets
-
-仓库页面 → **Settings → Secrets and variables → Actions → New repository secret**，添加以下 secrets：
-
-| Name | 说明 |
-|------|------|
-| `CLOUDBASE_ENV_ID` | CloudBase 环境 ID |
-| `TENCENTCLOUD_SECRETID` | 腾讯云 API 密钥 SecretId（CloudBase CLI 登录用） |
-| `TENCENTCLOUD_SECRETKEY` | 腾讯云 API 密钥 SecretKey（CloudBase CLI 登录用） |
-| `CLOUDBASE_APIKEY` | CloudBase API Key（后端运行时初始化 SDK 使用） |
-| `JWT_SECRET` | JWT 签名密钥（至少 32 位随机字符串） |
-| `JWT_EXPIRES_IN` | JWT 有效期，如 `2h` |
-| `API_BASE_URL` | 前端生产环境调用的后端地址，例如 `https://xxx.service.tcloudbase.com/api/v1` |
-
-> 密钥获取方式见上文「前置准备」第 7 步。
-
-#### 2. 首次部署（先部署后端，再获取 API_BASE_URL）
-
-由于前端构建需要知道后端地址，而首次部署前还不知道，因此 workflow 会**先只部署后端，跳过前端**。等拿到后端访问地址后，再设置 `API_BASE_URL` 并重新触发部署。
-
-**步骤如下：**
-
-```bash
-git add .
-git commit -m "ci: setup cloudbase auto deploy"
-git push origin main
-```
-
-push 后，在仓库 **Actions** 标签页可以看到：
-
-1. `deploy-api` 任务：部署后端到 CloudBase 云托管（CloudBase Run）容器；
-2. `deploy-web` 任务：检测到 `API_BASE_URL` 未配置，自动跳过，并在日志中提示后续操作。
-
-> **首次自动部署前必读：**
-> - 必须先在 CloudBase 控制台执行 `scripts/schema.sql` 建表，否则后端启动会失败。
-> - 首次部署后，检查云托管服务环境变量是否已在 CloudBase 控制台正确写入（来自 `cloudbaserc.json` 的 `envVariables`）。
-
-#### 3. 获取后端访问地址并配置 API_BASE_URL
-
-后端部署成功后，需要拿到真实的后端入口地址：
+首次部署前，必须在 CloudBase 控制台执行 `scripts/schema.sql` 建表：
 
 1. 登录 [CloudBase 控制台](https://console.cloud.tencent.com/tcb)。
-2. 进入对应环境 → **云托管** → **服务列表** → 点击 `workschedule-api`。
-3. 复制服务访问 URL。
+2. 进入对应环境 → **云数据库 PostgreSQL** → **SQL 执行器**。
+3. 打开 `scripts/schema.sql`，复制全部 SQL 内容并执行。
+4. 后端首次启动时会自动插入默认管理员账号：
+   - 用户名：`admin`
+   - 密码：`Admin1234`
 
-地址格式通常为：
+## EdgeOne Pages 部署
 
-```
-https://<service-id>.service.tcloudbase.com/api/v1
-```
+### 1. 创建 EdgeOne Pages 项目
 
-> 其中 `/api` 来自 `workschedule-api/cloudbaserc.json` 中配置的 `servicePath`，`/v1` 是后端 API 版本前缀。
+1. 登录 [EdgeOne 控制台](https://console.cloud.tencent.com/edgeone) → **Pages**。
+2. 点击 **新建项目** → 选择 **从 Git 仓库导入**。
+3. 授权 GitHub 并选择仓库：`chivalry1314/workschedule`。
+4. 分支选择 `main`，构建配置如下：
 
-复制地址后，在 GitHub 仓库 → **Settings → Secrets and variables → Actions → New repository secret**，添加名为 `API_BASE_URL` 的 secret，值为完整地址。
+| 配置项 | 值 |
+|--------|-----|
+| 构建命令 | `npm run build:edgeone` |
+| 输出目录 | `./workschedule-web/dist` |
+| Node 版本 | `22.11.0`（或更高） |
 
-#### 4. 重新触发前端部署
+5. 在环境变量面板添加上述 4 个环境变量。
+6. 保存并触发首次构建。
 
-设置 `API_BASE_URL` 后，重新触发 workflow 的两种方式：
+### 2. 等待构建完成
 
-**方式 A（推荐）：push 一个空提交**
-
-```bash
-git commit --allow-empty -m "ci: trigger frontend deploy with API_BASE_URL"
-git push origin main
-```
-
-**方式 B：在 GitHub Actions 页面手动重新运行**
-
-进入仓库 **Actions → Deploy to CloudBase → 最新的一次运行 → Re-run all jobs**。
-
-重新运行后，`deploy-web` 会正常构建并部署前端。
-
-### 方式二：手动部署
-
-如果暂时不想配置 Actions，仍可手动部署：
-
-#### 1. 部署后端云托管
+首次构建会执行：
 
 ```bash
-cd workschedule-api
-cloudbase framework:deploy -e your-env-id
+npm install        # 根目录依赖
+npm run build:edgeone
 ```
 
-#### 2. 部署前端静态网站
+`build:edgeone` 内部逻辑：
 
 ```bash
-cd workschedule-web
-npm run build
-cloudbase framework:deploy -e your-env-id
+cd workschedule-web && npm ci && npm run build
+cd ../workschedule-api && npm ci && npm run build:edgeone
 ```
 
-### 配置域名
+最终会在仓库根目录生成 `cloud-functions/api/` 目录，包含：
 
-1. 在 CloudBase 控制台为前端静态网站绑定自定义域名。
-2. 为后端云托管服务配置访问路径 `/api`。
-3. 在前端 `.env.production` 中配置生产环境 API 地址。
+```
+cloud-functions/api/
+├── [[default]].js      # EdgeOne Pages 函数入口
+├── dist/               # NestJS 构建产物
+├── node_modules/       # 生产依赖
+├── package.json
+└── package-lock.json
+```
 
-## 部署验证
+> 当前生产依赖包体积约 106MB，低于 EdgeOne Pages Cloud Functions 128MB 限制。
+
+### 3. 绑定自定义域名
+
+构建成功后，EdgeOne Pages 会分配一个默认域名。如需国内访问：
+
+1. 在 EdgeOne Pages 项目 → **域名** → **添加域名**。
+2. 按提示在 DNS 服务商添加 CNAME 记录。
+3. 等待证书自动签发（EdgeOne Pages 提供免费 SSL 证书）。
+
+### 4. 验证部署
 
 1. 访问前端域名，使用默认管理员账号登录：
    - 用户名：`admin`
@@ -192,33 +129,88 @@ cloudbase framework:deploy -e your-env-id
 5. 进入「管理 → 人员」添加人员。
 6. 进入「我的排班」填写排班。
 
+## 本地开发
+
+### 后端
+
+```bash
+cd workschedule-api
+
+# 1. 创建 .env 文件（参考 .env.example）
+cp .env.example .env
+
+# 2. 安装依赖
+npm install
+
+# 3. 启动开发服务器
+npm run start:dev
+```
+
+后端默认运行在 http://localhost:3000，API 前缀 `/api/v1`。
+
+### 前端
+
+```bash
+cd workschedule-web
+npm install
+npm run dev
+```
+
+前端默认运行在 http://localhost:5173，已配置代理到后端。
+
+### 本地验证 EdgeOne 函数包
+
+```bash
+cd workschedule-api
+npm run build:edgeone
+
+# 本地启动函数入口（需配置真实 CLOUDBASE_ENV_ID / CLOUDBASE_APIKEY）
+cd ..
+CLOUDBASE_ENV_ID=xxx CLOUDBASE_APIKEY=xxx JWT_SECRET=xxx JWT_EXPIRES_IN=2h node cloud-functions/api/[[default]].js
+```
+
+## 重新部署
+
+后续推送到 `main` 分支后，EdgeOne Pages 会自动触发重新构建和部署。如果某次提交没有自动触发，可在 EdgeOne Pages 控制台点击 **重新部署**。
+
 ## 常见问题
 
-### 云函数冷启动慢
-- 提高云函数内存或配置预置并发（会产生额外费用）。
-- 首次访问可能有 1-3 秒延迟，后续正常。
+### 1. 构建失败：函数包超过 128MB
 
-### CloudBase SDK 初始化失败
-- 确认环境变量 `CLOUDBASE_ENV_ID` 已配置。
-- Web 云函数必须配置 `CLOUDBASE_APIKEY` 或显式传入 `secretId`/`secretKey`。
-- 确认 API 密钥有权限访问当前 CloudBase 环境。
+当前生产包约 106MB，仍有 22MB 余量。若后续依赖增加导致超限：
 
-### 数据库操作失败
-- 确认 CloudBase PostgreSQL 数据库已开通。
-- 确认数据库白名单已允许 CloudBase 云函数访问。
-- 查看云函数日志获取详细错误信息。
+- 检查是否误将 devDependencies 打包进 `cloud-functions/api/node_modules`。
+- 在 `workschedule-api/scripts/build-edgeone.mjs` 中增加依赖裁剪逻辑。
+- 使用 esbuild/rollup 将后端打包为单文件，减少 `node_modules` 体积。
 
-### 前端 API 请求失败
-- 确认前端请求地址正确。
-- 如果使用同域名部署，需配置 API 网关或 Nginx 规则将 `/api` 转发到云函数。
-- 如果使用独立域名，修改 `src/utils/request.ts` 中的 `baseURL`。
+### 2. 首次访问 500 / 数据库错误
+
+- 确认已在 CloudBase 控制台执行 `scripts/schema.sql`。
+- 确认 EdgeOne Pages 环境变量 `CLOUDBASE_ENV_ID` 和 `CLOUDBASE_APIKEY` 已配置。
+- 确认 CloudBase PostgreSQL 白名单允许 EdgeOne Pages 函数访问（通常 CloudBase 内网互通，无需额外配置）。
+
+### 3. 前端请求 404
+
+- 确认 `edgeone.json` 中 `/api/*` rewrite 规则存在。
+- 确认 `cloud-functions/api/[[default]].js` 已生成并部署。
+
+### 4. 冷启动慢
+
+EdgeOne Pages Cloud Functions 首次访问可能有 1-3 秒冷启动，后续正常。如不能忍受，可在 EdgeOne 控制台查看是否支持预热/常驻配置（可能产生额外费用）。
+
+### 5. 日志中出现 "缺少依赖 ws"
+
+`@cloudbase/js-sdk` 在 Node.js 环境下会打印一条提示：`缺少依赖 ws，请执行以下命令安装：npm install ws`。该警告来自 SDK 内部，不影响数据库 HTTP 请求。生产包中已包含 `ws` 依赖，可忽略此提示。如果后续需要用到 SDK 的 WebSocket 能力（本项目目前仅使用 PostgREST/HTTP），请确认 `ws` 已存在于 `cloud-functions/api/node_modules` 中。
 
 ## 成本估算
 
 | 项目 | 费用 |
 |------|------|
-| CloudBase 静态托管 | 免费额度内约 0 元 |
-| CloudBase 云函数 | 免费额度 100 万次/月，超出约 0.0133 元/万次 |
+| EdgeOne Pages 静态托管 | 免费额度内约 0 元 |
+| EdgeOne Pages Cloud Functions | 免费额度内约 0 元，超出按调用次数与资源使用计费 |
 | CloudBase PostgreSQL | 按实际使用计费，小团队每月约 10-50 元 |
 | 域名 | 约 60-100 元/年 |
+| SSL 证书 | EdgeOne Pages 免费提供 |
 | **合计** | **约 10-100 元/月 + 域名费用** |
+
+> 具体计费以腾讯云官方文档为准。

@@ -1,4 +1,0 @@
-#!/bin/bash
-export PORT=9000
-export NODE_ENV=production
-node dist/main.js

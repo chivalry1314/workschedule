@@ -1,0 +1,9 @@
+{
+  "name": "workschedule",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:edgeone": "cd workschedule-web && npm ci && npm run build && cd ../workschedule-api && npm ci && npm run build:edgeone"
+  }
+}
