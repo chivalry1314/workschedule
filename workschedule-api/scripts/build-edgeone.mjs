@@ -15,10 +15,11 @@ await mkdir(outDir, { recursive: true });
 await cp(resolve(apiDir, 'edgeone/entry.js'), resolve(outDir, '[[default]].js'));
 await cp(resolve(apiDir, 'dist'), resolve(outDir, 'dist'), { recursive: true });
 
-// 复制 package.json 并安装生产依赖
+// 复制 package.json、package-lock.json 并安装生产依赖
 await cp(resolve(apiDir, 'package.json'), resolve(outDir, 'package.json'));
+await cp(resolve(apiDir, 'package-lock.json'), resolve(outDir, 'package-lock.json'));
 
 const { execSync } = await import('node:child_process');
-execSync('npm install --omit=dev', { cwd: outDir, stdio: 'inherit' });
+execSync('npm ci --omit=dev', { cwd: outDir, stdio: 'inherit' });
 
 console.log('EdgeOne Cloud Function package prepared successfully');

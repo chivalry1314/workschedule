@@ -94,10 +94,11 @@ npm run build:edgeone
 
 ```bash
 cd workschedule-web && rm -f package-lock.json && rm -rf node_modules && npm install && if [ "$(uname -s)" = "Linux" ]; then npm install --no-save @rolldown/binding-linux-x64-gnu; fi && npm run build
-cd ../workschedule-api && rm -f package-lock.json && rm -rf node_modules && npm install && npm run build:edgeone
+cd ../workschedule-api && npm ci && npm run build:edgeone
 ```
 
-> 由于 `package-lock.json` 在 Windows 本地生成，锁的是 Windows 原生依赖；EdgeOne Pages 构建环境为 Linux，直接沿用 lockfile 会导致 `rolldown` 等平台原生包找不到 Linux 绑定。因此构建时会先删除 lockfile 与 `node_modules`，并在 Linux 下显式补装 `@rolldown/binding-linux-x64-gnu`。
+> 前端 `package-lock.json` 在 Windows 本地生成，锁的是 Windows 原生依赖；EdgeOne Pages 构建环境为 Linux，直接沿用 lockfile 会导致 `rolldown` 找不到 Linux 绑定。因此前端构建时会先删除 lockfile 与 `node_modules`，并在 Linux 下显式补装 `@rolldown/binding-linux-x64-gnu`。
+> 后端仍使用 `npm ci` 沿用现有 `package-lock.json`，避免无锁安装导致 transitive 依赖版本漂移。
 
 最终会在仓库根目录生成 `cloud-functions/api/` 目录，包含：
 
