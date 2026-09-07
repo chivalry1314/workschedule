@@ -1,6 +1,6 @@
 # 排班管理系统
 
-基于 NestJS + CloudBase SDK + Vue 3 + Vant 的排班管理系统，采用 **EdgeOne Pages** 部署（前端静态托管 + Cloud Functions 后端），数据库使用 **腾讯云 CloudBase PostgreSQL**。
+基于 NestJS + CloudBase SDK + Vue 3 + Vant 的排班管理系统，采用 **EdgeOne Pages** 部署（前端静态托管 + Node Functions 后端），数据库使用 **腾讯云 CloudBase PostgreSQL**。
 
 ## 项目结构
 
@@ -19,7 +19,7 @@ workschedule/
 │   │   ├── bootstrap.ts       # 应用创建（EdgeOne / 本地复用）
 │   │   └── main.ts            # 本地开发入口
 │   ├── edgeone/
-│   │   └── entry.js           # EdgeOne Pages Cloud Functions 入口
+│   │   └── entry.js           # EdgeOne Pages Node Functions 入口
 │   └── scripts/
 │       └── build-edgeone.mjs  # EdgeOne 函数包构建脚本
 │
@@ -32,7 +32,7 @@ workschedule/
 │       ├── layouts/           # 布局组件
 │       └── utils/             # 工具函数
 │
-├── cloud-functions/           # EdgeOne Pages Cloud Functions 输出目录（构建生成）
+├── node-functions/            # EdgeOne Pages Node Functions 输出目录（构建生成）
 │   └── api/
 │       ├── [[default]].js     # 函数入口
 │       ├── dist/              # NestJS 构建产物
@@ -92,7 +92,7 @@ cd workschedule-api
 npm run build:edgeone
 ```
 
-构建成功后在仓库根目录生成 `cloud-functions/api/`，即为 EdgeOne Pages Cloud Functions 部署包。
+构建成功后在仓库根目录生成 `node-functions/api/`，即为 EdgeOne Pages Node Functions 部署包。
 
 ## 功能模块
 
@@ -117,7 +117,7 @@ npm run build:edgeone
 - **前端**：Vue 3 + Vite + TypeScript + Vant 4 + Pinia + Vue Router
 - **后端**：NestJS + TypeScript + CloudBase SDK（`@cloudbase/js-sdk`）
 - **数据库**：CloudBase PostgreSQL 云数据库
-- **部署**：EdgeOne Pages（静态托管 + Cloud Functions）
+- **部署**：EdgeOne Pages（静态托管 + Node Functions）
 
 ## 注意事项
 

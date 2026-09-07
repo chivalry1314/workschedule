@@ -6,7 +6,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '../..');
 const apiDir = resolve(rootDir, 'workschedule-api');
-const fnDir = resolve(rootDir, 'cloud-functions/api');
+const fnDir = resolve(rootDir, 'node-functions/api');
 
 await rm(fnDir, { recursive: true, force: true });
 await mkdir(fnDir, { recursive: true });

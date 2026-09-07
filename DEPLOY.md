@@ -1,18 +1,18 @@
 # 部署指南（EdgeOne Pages + CloudBase PostgreSQL）
 
-本项目采用 **EdgeOne Pages** 作为前端静态托管与后端函数运行时，数据库继续使用 **腾讯云 CloudBase PostgreSQL**。
+本项目采用 **EdgeOne Pages** 作为前端静态托管与后端函数运行时（Node Functions），数据库继续使用 **腾讯云 CloudBase PostgreSQL**。
 
 ## 部署架构
 
 ```
 用户 ──► EdgeOne Pages（域名）
         ├── 静态页面 /api/* 以外的请求 → 前端 Vue 3 应用
-        └── /api/* 请求 → EdgeOne Pages Cloud Functions（NestJS）
+        └── /api/* 请求 → EdgeOne Pages Node Functions（NestJS）
                         └── CloudBase SDK ──► CloudBase PostgreSQL
 ```
 
 - **前端**：EdgeOne Pages 静态站点（`workschedule-web/dist`）
-- **后端**：EdgeOne Pages Cloud Functions（`cloud-functions/api/[[default]].js`）
+- **后端**：EdgeOne Pages Node Functions（`node-functions/api/[[default]].js`）
 - **数据库**：CloudBase PostgreSQL（云数据库）
 
 ## 前置准备
@@ -100,10 +100,10 @@ cd ../workschedule-api && npm ci && npm run build:edgeone
 > 前端 `package-lock.json` 在 Windows 本地生成，锁的是 Windows 原生依赖；EdgeOne Pages 构建环境为 Linux，直接沿用 lockfile 会导致 `rolldown` 找不到 Linux 绑定。因此前端构建时会先删除 lockfile 与 `node_modules`，并在 Linux 下显式补装 `@rolldown/binding-linux-x64-gnu`。
 > 后端仍使用 `npm ci` 沿用现有 `package-lock.json`，避免无锁安装导致 transitive 依赖版本漂移。
 
-最终会在仓库根目录生成 `cloud-functions/api/` 目录，这是 EdgeOne Pages Cloud Functions 的标准源码目录：
+最终会在仓库根目录生成 `node-functions/api/` 目录，这是 EdgeOne Pages Cloud Functions 的标准源码目录：
 
 ```
-cloud-functions/
+node-functions/
 └── api/
     ├── [[default]].js      # EdgeOne Pages Cloud Functions 入口（Express 实例）
     ├── dist/               # NestJS 构建产物
@@ -113,7 +113,7 @@ cloud-functions/
 
 > 当前生产依赖包体积约 106MB，低于 EdgeOne Pages Cloud Functions 128MB 限制。
 
-> **注意**：`cloud-functions/api/` 是 EdgeOne Pages Cloud Functions 的源码目录，Git 集成部署时平台需要在仓库中能看到它。首次部署前请在本地执行 `npm run build:edgeone`，然后将生成的 `cloud-functions/api/` 一并提交到 Git；后续 push 时构建命令会重新生成该目录。
+> **注意**：`node-functions/api/` 是 EdgeOne Pages Cloud Functions 的源码目录，Git 集成部署时平台需要在仓库中能看到它。首次部署前请在本地执行 `npm run build:edgeone`，然后将生成的 `node-functions/api/` 一并提交到 Git；后续 push 时构建命令会重新生成该目录。
 
 ### 3. 绑定自定义域名
 
@@ -171,7 +171,7 @@ npm run build:edgeone
 
 # 本地启动函数入口（需配置真实 CLOUDBASE_ENV_ID / CLOUDBASE_APIKEY）
 cd ..
-CLOUDBASE_ENV_ID=xxx CLOUDBASE_APIKEY=xxx JWT_SECRET=xxx JWT_EXPIRES_IN=2h node cloud-functions/api/[[default]].js
+CLOUDBASE_ENV_ID=xxx CLOUDBASE_APIKEY=xxx JWT_SECRET=xxx JWT_EXPIRES_IN=2h node node-functions/api/[[default]].js
 ```
 
 ## 重新部署
@@ -184,7 +184,7 @@ CLOUDBASE_ENV_ID=xxx CLOUDBASE_APIKEY=xxx JWT_SECRET=xxx JWT_EXPIRES_IN=2h node 
 
 当前生产包约 106MB，仍有 22MB 余量。若后续依赖增加导致超限：
 
-- 检查是否误将 devDependencies 打包进 `cloud-functions/api/node_modules`。
+- 检查是否误将 devDependencies 打包进 `node-functions/api/node_modules`。
 - 在 `workschedule-api/scripts/build-edgeone.mjs` 中增加依赖裁剪逻辑。
 - 使用 esbuild/rollup 将后端打包为单文件，减少 `node_modules` 体积。
 
@@ -197,7 +197,7 @@ CLOUDBASE_ENV_ID=xxx CLOUDBASE_APIKEY=xxx JWT_SECRET=xxx JWT_EXPIRES_IN=2h node 
 ### 3. 前端请求 404
 
 - 确认 `edgeone.json` 中 `/api/*` rewrite 规则存在。
-- 确认 `cloud-functions/api/[[default]].js` 已生成并部署。
+- 确认 `node-functions/api/[[default]].js` 已生成并部署。
 
 ### 4. 冷启动慢
 
@@ -205,7 +205,7 @@ EdgeOne Pages Cloud Functions 首次访问可能有 1-3 秒冷启动，后续正
 
 ### 5. 日志中出现 "缺少依赖 ws"
 
-`@cloudbase/js-sdk` 在 Node.js 环境下会打印一条提示：`缺少依赖 ws，请执行以下命令安装：npm install ws`。该警告来自 SDK 内部，不影响数据库 HTTP 请求。生产包中已包含 `ws` 依赖，可忽略此提示。如果后续需要用到 SDK 的 WebSocket 能力（本项目目前仅使用 PostgREST/HTTP），请确认 `ws` 已存在于 `cloud-functions/api/node_modules` 中。
+`@cloudbase/js-sdk` 在 Node.js 环境下会打印一条提示：`缺少依赖 ws，请执行以下命令安装：npm install ws`。该警告来自 SDK 内部，不影响数据库 HTTP 请求。生产包中已包含 `ws` 依赖，可忽略此提示。如果后续需要用到 SDK 的 WebSocket 能力（本项目目前仅使用 PostgREST/HTTP），请确认 `ws` 已存在于 `node-functions/api/node_modules` 中。
 
 ## 成本估算
 
