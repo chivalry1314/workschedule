@@ -1,13 +1,9 @@
 {
   "buildCommand": "npm run build:edgeone",
-  "outputDirectory": "./workschedule-web/dist",
+  "outputDirectory": "./.edgeone",
   "installCommand": "npm install",
   "nodeVersion": "22.11.0",
   "rewrites": [
-    {
-      "source": "/api/*",
-      "destination": "/api/:splat"
-    },
     {
       "source": "/*",
       "destination": "/index.html"

@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:edgeone": "cd workschedule-web && rm -f package-lock.json && rm -rf node_modules && npm install && if [ \"$(uname -s)\" = \"Linux\" ]; then npm install --no-save @rolldown/binding-linux-x64-gnu; fi && npm run build && cd ../workschedule-api && npm ci && npm run build:edgeone"
+    "build:edgeone": "cd workschedule-web && rm -f package-lock.json && rm -rf node_modules && npm install && if [ \"$(uname -s)\" = \"Linux\" ]; then npm install --no-save @rolldown/binding-linux-x64-gnu; fi && npm run build && cd .. && rm -rf .edgeone && mkdir -p .edgeone/assets && cp -r workschedule-web/dist/* .edgeone/assets/ && cd workschedule-api && npm ci && npm run build:edgeone"
   }
 }
