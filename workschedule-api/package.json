@@ -14,7 +14,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "build:edgeone": "nest build && node scripts/build-edgeone.mjs",
+    "build:edgeone": "npm run build && node scripts/build-edgeone.mjs",
     "lint": "oxlint src/ test/",
     "test": "vitest run",
     "test:watch": "vitest",
