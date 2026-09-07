@@ -11,7 +11,7 @@ on:
 
 jobs:
   deploy-api:
-    name: 部署后端云托管
+    name: 部署后端云函数
     runs-on: ubuntu-latest
     steps:
       - name: 检出代码
@@ -25,24 +25,26 @@ jobs:
           cache-dependency-path: |
             workschedule-api/package-lock.json
 
-      - name: 安装 CloudBase CLI 与部署插件
+      - name: 安装依赖并构建
+        working-directory: workschedule-api
         run: |
-          npm install -g @cloudbase/cli@2.10.0
-          mkdir -p "$HOME/cloudbase-framework/registry"
-          cd "$HOME/cloudbase-framework/registry"
-          npm init -y
-          npm install @cloudbase/framework-core@1.9.7 @cloudbase/framework-plugin-container@1.9.7 @cloudbase/framework-plugin-website@1.9.7
+          npm ci
+          npm run build
 
-      - name: 登录 CloudBase
-        env:
-          TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
-          TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+      - name: 准备部署包
+        working-directory: workschedule-api
         run: |
-          printf '%s' "$TENCENTCLOUD_SECRETID" > /tmp/secret_id
-          printf '%s' "$TENCENTCLOUD_SECRETKEY" > /tmp/secret_key
-          cloudbase login --apiKeyId "$(cat /tmp/secret_id)" --apiKey "$(cat /tmp/secret_key)"
+          rm -rf .deploy
+          mkdir -p .deploy
+          cp package.json package-lock.json .deploy/
+          cp -r dist .deploy/
+          cd .deploy
+          npm ci --omit=dev
 
-      - name: 构建并部署后端
+      - name: 安装 CloudBase CLI
+        run: npm install -g @cloudbase/cli
+
+      - name: 写入 CloudBase 配置
         working-directory: workschedule-api
         env:
           CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
@@ -50,7 +52,24 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
         run: |
-          cloudbase framework:deploy -e "$CLOUDBASE_ENV_ID"
+          node - <<'NODE'
+          const fs = require('fs');
+          let cfg = fs.readFileSync('cloudbaserc.json', 'utf8');
+          cfg = cfg.replace(/\{\{env\.CLOUDBASE_ENV_ID\}\}/g, process.env.CLOUDBASE_ENV_ID);
+          cfg = cfg.replace(/\{\{env\.CLOUDBASE_APIKEY\}\}/g, process.env.CLOUDBASE_APIKEY);
+          cfg = cfg.replace(/\{\{env\.JWT_SECRET\}\}/g, process.env.JWT_SECRET);
+          cfg = cfg.replace(/\{\{env\.JWT_EXPIRES_IN\}\}/g, process.env.JWT_EXPIRES_IN);
+          fs.writeFileSync('cloudbaserc.json', cfg);
+          NODE
+
+      - name: 登录并部署云函数
+        working-directory: workschedule-api
+        env:
+          TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
+          TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+        run: |
+          tcb login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
+          tcb fn deploy workschedule-api --httpFn --path /api --force --dir ./.deploy --runtime Nodejs20.19
 
   deploy-web:
     name: 部署前端静态网站
@@ -82,45 +101,39 @@ jobs:
           cache-dependency-path: |
             workschedule-web/package-lock.json
 
-      - name: 安装 CloudBase CLI 与部署插件
-        if: steps.check_api_url.outputs.missing == 'false'
-        run: |
-          npm install -g @cloudbase/cli@2.10.0
-          mkdir -p "$HOME/cloudbase-framework/registry"
-          cd "$HOME/cloudbase-framework/registry"
-          npm init -y
-          npm install @cloudbase/framework-core@1.9.7 @cloudbase/framework-plugin-container@1.9.7 @cloudbase/framework-plugin-website@1.9.7
-
-      - name: 登录 CloudBase
-        if: steps.check_api_url.outputs.missing == 'false'
-        env:
-          TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
-          TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
-        run: |
-          printf '%s' "$TENCENTCLOUD_SECRETID" > /tmp/secret_id
-          printf '%s' "$TENCENTCLOUD_SECRETKEY" > /tmp/secret_key
-          cloudbase login --apiKeyId "$(cat /tmp/secret_id)" --apiKey "$(cat /tmp/secret_key)"
-
-      - name: 构建并部署前端
+      - name: 构建前端
         if: steps.check_api_url.outputs.missing == 'false'
         working-directory: workschedule-web
         env:
-          CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
           API_BASE_URL: ${{ secrets.API_BASE_URL }}
         run: |
           npm ci
           echo "VITE_API_BASE_URL=$API_BASE_URL" > .env.production
           npm run build
-          cloudbase framework:deploy -e "$CLOUDBASE_ENV_ID"
+
+      - name: 安装 CloudBase CLI
+        if: steps.check_api_url.outputs.missing == 'false'
+        run: npm install -g @cloudbase/cli
+
+      - name: 登录并部署静态网站
+        if: steps.check_api_url.outputs.missing == 'false'
+        working-directory: workschedule-web
+        env:
+          CLOUDBASE_ENV_ID: ${{ secrets.CLOUDBASE_ENV_ID }}
+          TENCENTCLOUD_SECRETID: ${{ secrets.TENCENTCLOUD_SECRETID }}
+          TENCENTCLOUD_SECRETKEY: ${{ secrets.TENCENTCLOUD_SECRETKEY }}
+        run: |
+          tcb login --apiKeyId "$TENCENTCLOUD_SECRETID" --apiKey "$TENCENTCLOUD_SECRETKEY"
+          tcb hosting deploy ./dist -e "$CLOUDBASE_ENV_ID"
 
       - name: 提示首次部署后续操作
         if: steps.check_api_url.outputs.missing == 'true'
         run: |
           echo "=========================================="
-          echo "后端云托管已部署成功。"
+          echo "后端云函数已部署成功。"
           echo "下一步："
-          echo "1. 登录 CloudBase 控制台 → 云托管 → workschedule-api"
-          echo "2. 复制服务访问 URL（如 https://xxx.service.tcloudbase.com/api）"
+          echo "1. 登录 CloudBase 控制台 → 云函数 → workschedule-api"
+          echo "2. 复制 HTTP 访问 URL（如 https://xxx.service.tcloudbase.com/api）"
           echo "3. 在 GitHub 仓库 Settings → Secrets → Actions 中添加 API_BASE_URL"
           echo "   格式示例：https://xxx.service.tcloudbase.com/api/v1"
           echo "4. 重新触发本 workflow 或 push 任意提交以部署前端"
