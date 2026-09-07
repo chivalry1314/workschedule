@@ -52,7 +52,7 @@ jobs:
         run: |
           npm ci
           npm run build
-          cloudbase framework:deploy -e "$CLOUDBASE_ENV_ID" --yes
+          cloudbase framework:deploy -e "$CLOUDBASE_ENV_ID"
 
   deploy-web:
     name: 部署前端静态网站
@@ -113,7 +113,7 @@ jobs:
           npm ci
           echo "VITE_API_BASE_URL=$API_BASE_URL" > .env.production
           npm run build
-          cloudbase framework:deploy -e "$CLOUDBASE_ENV_ID" --yes
+          cloudbase framework:deploy -e "$CLOUDBASE_ENV_ID"
 
       - name: 提示首次部署后续操作
         if: steps.check_api_url.outputs.missing == 'true'
