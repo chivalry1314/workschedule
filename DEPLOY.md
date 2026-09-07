@@ -93,9 +93,11 @@ npm run build:edgeone
 `build:edgeone` 内部逻辑：
 
 ```bash
-cd workschedule-web && npm ci && npm run build
-cd ../workschedule-api && npm ci && npm run build:edgeone
+cd workschedule-web && npm install && npm run build
+cd ../workschedule-api && npm install && npm run build:edgeone
 ```
+
+> 使用 `npm install` 而非 `npm ci`，是因为 `package-lock.json` 在 Windows 本地生成，而 EdgeOne Pages 构建环境为 Linux，需要让 npm 自动选择正确的平台原生依赖（如 `rolldown`/`esbuild` 的 Linux 绑定）。
 
 最终会在仓库根目录生成 `cloud-functions/api/` 目录，包含：
 

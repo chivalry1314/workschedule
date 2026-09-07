@@ -20,6 +20,6 @@ await cp(resolve(apiDir, 'package.json'), resolve(outDir, 'package.json'));
 await cp(resolve(apiDir, 'package-lock.json'), resolve(outDir, 'package-lock.json'));
 
 const { execSync } = await import('node:child_process');
-execSync('npm ci --omit=dev', { cwd: outDir, stdio: 'inherit' });
+execSync('npm install --omit=dev', { cwd: outDir, stdio: 'inherit' });
 
 console.log('EdgeOne Cloud Function package prepared successfully');
