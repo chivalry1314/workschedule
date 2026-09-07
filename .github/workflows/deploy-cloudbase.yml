@@ -35,7 +35,7 @@ jobs:
         run: |
           printf '%s' "$TENCENTCLOUD_SECRETID" > /tmp/secret_id
           printf '%s' "$TENCENTCLOUD_SECRETKEY" > /tmp/secret_key
-          cloudbase login --key --secretId "$(cat /tmp/secret_id)" --secretKey "$(cat /tmp/secret_key)"
+          cloudbase login --apiKeyId "$(cat /tmp/secret_id)" --apiKey "$(cat /tmp/secret_key)"
 
       - name: 构建并部署后端
         working-directory: workschedule-api
@@ -91,7 +91,7 @@ jobs:
         run: |
           printf '%s' "$TENCENTCLOUD_SECRETID" > /tmp/secret_id
           printf '%s' "$TENCENTCLOUD_SECRETKEY" > /tmp/secret_key
-          cloudbase login --key --secretId "$(cat /tmp/secret_id)" --secretKey "$(cat /tmp/secret_key)"
+          cloudbase login --apiKeyId "$(cat /tmp/secret_id)" --apiKey "$(cat /tmp/secret_key)"
 
       - name: 构建并部署前端
         if: steps.check_api_url.outputs.missing == 'false'
