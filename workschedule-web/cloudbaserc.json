@@ -10,12 +10,7 @@
           "codeRoot": "dist",
           "entry": "/index.html",
           "ignores": ["node_modules"],
-          "customDomains": [
-            {
-              "domain": "your-domain.com",
-              "dnsType": "cname"
-            }
-          ]
+          "customDomains": []
         }
       }
     }
