@@ -93,10 +93,10 @@ npm run dev
 | `CLOUDBASE_ENV_ID` | CloudBase 环境 ID |
 | `TENCENTCLOUD_SECRETID` | 腾讯云 API 密钥 SecretId（CloudBase CLI 登录用） |
 | `TENCENTCLOUD_SECRETKEY` | 腾讯云 API 密钥 SecretKey（CloudBase CLI 登录用） |
-| `CLOUDBASE_APIKEY` | CloudBase API Key（后端云函数运行时初始化 SDK 使用） |
+| `CLOUDBASE_APIKEY` | CloudBase API Key（后端运行时初始化 SDK 使用） |
 | `JWT_SECRET` | JWT 签名密钥（至少 32 位随机字符串） |
 | `JWT_EXPIRES_IN` | JWT 有效期，如 `2h` |
-| `API_BASE_URL` | 前端生产环境调用的后端地址，例如 `https://your-domain.com/api/v1` |
+| `API_BASE_URL` | 前端生产环境调用的后端地址，例如 `https://xxx.service.tcloudbase.com/api/v1` |
 
 > 密钥获取方式见上文「前置准备」第 7 步。
 
@@ -114,31 +114,30 @@ git push origin main
 
 push 后，在仓库 **Actions** 标签页可以看到：
 
-1. `deploy-api` 任务：安装依赖、构建后端、部署到 CloudBase 云函数；
+1. `deploy-api` 任务：部署后端到 CloudBase 云托管（CloudBase Run）容器；
 2. `deploy-web` 任务：检测到 `API_BASE_URL` 未配置，自动跳过，并在日志中提示后续操作。
 
 > **首次自动部署前必读：**
-> - 必须先在 CloudBase 控制台执行 `scripts/schema.sql` 建表，否则后端云函数启动会失败。
-> - 首次部署后，检查云函数环境变量是否已在 CloudBase 控制台正确写入（来自 `cloudbaserc.json` 的 `envVariables`）。
+> - 必须先在 CloudBase 控制台执行 `scripts/schema.sql` 建表，否则后端启动会失败。
+> - 首次部署后，检查云托管服务环境变量是否已在 CloudBase 控制台正确写入（来自 `cloudbaserc.json` 的 `envVariables`）。
 
 #### 3. 获取后端访问地址并配置 API_BASE_URL
 
 后端部署成功后，需要拿到真实的后端入口地址：
 
 1. 登录 [CloudBase 控制台](https://console.cloud.tencent.com/tcb)。
-2. 进入对应环境 → **云函数** → **函数列表** → 点击 `workschedule-api`。
-3. 在「触发管理」/「访问路径」/「函数 URL」中复制访问地址。
+2. 进入对应环境 → **云托管** → **服务列表** → 点击 `workschedule-api`。
+3. 复制服务访问 URL。
 
-根据你的部署方式，地址格式有两种：
+地址格式通常为：
 
-| 部署方式 | API_BASE_URL 示例 |
-|---------|------------------|
-| 同域名 + `/api` 子路径代理（推荐） | `https://your-domain.com/api/v1` |
-| CloudBase 默认函数域名 | `https://<service-id>.service.tcloudbase.com/api/v1` |
+```
+https://<service-id>.service.tcloudbase.com/api/v1
+```
 
-> 其中 `/api` 来自 `workschedule-api/cloudbaserc.json` 中配置的 `servicePaths`，`/v1` 是后端 API 版本前缀。
+> 其中 `/api` 来自 `workschedule-api/cloudbaserc.json` 中配置的 `servicePath`，`/v1` 是后端 API 版本前缀。
 
-复制地址后，在 GitHub 仓库 → **Settings → Secrets and variables → Actions → New repository secret**，添加名为 `API_BASE_URL` 的 secret，值为上表中的完整地址。
+复制地址后，在 GitHub 仓库 → **Settings → Secrets and variables → Actions → New repository secret**，添加名为 `API_BASE_URL` 的 secret，值为完整地址。
 
 #### 4. 重新触发前端部署
 
@@ -161,11 +160,10 @@ git push origin main
 
 如果暂时不想配置 Actions，仍可手动部署：
 
-#### 1. 部署后端云函数
+#### 1. 部署后端云托管
 
 ```bash
 cd workschedule-api
-npm run build
 cloudbase framework:deploy -e your-env-id
 ```
 
@@ -180,8 +178,8 @@ cloudbase framework:deploy -e your-env-id
 ### 配置域名
 
 1. 在 CloudBase 控制台为前端静态网站绑定自定义域名。
-2. 为后端云函数配置访问路径 `/api`，并绑定到前端域名的子路径或通过 API 网关访问。
-3. 在前端 `.env.production` 中配置生产环境 API 地址（可选，CloudBase 可通过同域名子路径代理）。
+2. 为后端云托管服务配置访问路径 `/api`。
+3. 在前端 `.env.production` 中配置生产环境 API 地址。
 
 ## 部署验证
 
