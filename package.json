@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:edgeone": "cd workschedule-web && npm install && npm run build && cd ../workschedule-api && npm install && npm run build:edgeone"
+    "build:edgeone": "cd workschedule-web && rm -f package-lock.json && rm -rf node_modules && npm install && npm run build && cd ../workschedule-api && rm -f package-lock.json && rm -rf node_modules && npm install && npm run build:edgeone"
   }
 }
