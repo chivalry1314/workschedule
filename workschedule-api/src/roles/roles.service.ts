@@ -160,6 +160,9 @@ export class RolesService {
   async remove(id: bigint) {
     const roleId = Number(id);
     const role = await this.findOne(id);
+    if (role.name === '管理员') {
+      throw new BadRequestException('管理员角色不允许删除');
+    }
     if (role._count.users > 0) {
       throw new BadRequestException('该角色下存在人员，无法删除');
     }

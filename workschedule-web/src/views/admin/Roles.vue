@@ -33,7 +33,7 @@
         </div>
         <div class="form-actions">
           <van-button round block type="primary" @click="onSubmit">保存</van-button>
-          <van-button v-if="editing" round block type="danger" @click="remove">删除</van-button>
+          <van-button v-if="editing && form.name !== '管理员'" round block type="danger" @click="remove">删除</van-button>
         </div>
       </div>
     </van-popup>
@@ -95,6 +95,10 @@ const onSubmit = async () => {
 }
 
 const remove = async () => {
+  if (form.name === '管理员') {
+    showToast('管理员角色不允许删除')
+    return
+  }
   await showConfirmDialog({ title: '确认删除', message: '删除后无法恢复，是否继续？' })
   await withLoading(() => deleteRole(form.id), '删除中...')
   showToast('删除成功')
