@@ -35,6 +35,7 @@
           <van-cell title="角色管理" icon="cluster-o" to="/admin/roles" @click="showMenu = false" />
           <van-cell title="值班类型" icon="label-o" to="/admin/shift-types" @click="showMenu = false" />
           <van-cell title="排班规则" icon="orders-o" to="/admin/schedule-rules" @click="showMenu = false" />
+          <van-cell title="系统设置" icon="setting-o" to="/admin/settings" @click="showMenu = false" />
         </template>
         <div class="logout-wrap">
           <van-button round block type="danger" @click="logout">退出登录</van-button>

@@ -50,10 +50,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { showToast } from 'vant'
 import { useUserStore } from '@/stores/user'
 import { getMySchedules, saveMySchedules } from '@/api/schedule'
+import { getDefaultScheduleMonth } from '@/api/settings'
 import { withLoading } from '@/utils/loading'
 
 const userStore = useUserStore()
@@ -162,7 +163,21 @@ const clearShift = () => {
   setShift(null)
 }
 
-watch(() => [year.value, month.value], loadData, { immediate: true })
+const initDefaultMonth = async () => {
+  const defaultMonth = await getDefaultScheduleMonth()
+  if (defaultMonth) {
+    year.value = defaultMonth.year
+    month.value = defaultMonth.month
+  } else {
+    await loadData()
+  }
+}
+
+onMounted(() => {
+  withLoading(initDefaultMonth)
+})
+
+watch(() => [year.value, month.value], loadData)
 </script>
 
 <style scoped>

@@ -74,11 +74,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { showToast } from 'vant'
 import * as XLSX from 'xlsx'
 import { getAllSchedules, saveUserSchedules } from '@/api/schedule'
 import { getShiftTypes } from '@/api/shiftType'
+import { getDefaultScheduleMonth } from '@/api/settings'
 import { useUserStore } from '@/stores/user'
 import { withLoading } from '@/utils/loading'
 
@@ -218,7 +219,21 @@ const exportExcel = () => {
   XLSX.writeFile(book, `排班表-${year.value}-${String(month.value).padStart(2, '0')}.xlsx`)
 }
 
-watch(() => [year.value, month.value], loadData, { immediate: true })
+const initDefaultMonth = async () => {
+  const defaultMonth = await getDefaultScheduleMonth()
+  if (defaultMonth) {
+    year.value = defaultMonth.year
+    month.value = defaultMonth.month
+  } else {
+    await loadData()
+  }
+}
+
+onMounted(() => {
+  withLoading(initDefaultMonth)
+})
+
+watch(() => [year.value, month.value], loadData)
 </script>
 
 <style scoped>
