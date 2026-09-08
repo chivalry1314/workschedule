@@ -8,5 +8,13 @@
       "source": "/*",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "cloudFunctions": {
+    "nodejs": {
+      "externalNodeModules": [
+        "@nestjs/microservices",
+        "@nestjs/websockets"
+      ]
+    }
+  }
 }

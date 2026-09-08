@@ -28,8 +28,8 @@ const fnPkg = {
 };
 await writeFile(resolve(fnDir, 'package.json'), JSON.stringify(fnPkg, null, 2));
 
-// 生成与精简 package.json 匹配的 lockfile（不安装 node_modules）
+// 安装生产依赖到函数目录（EdgeOne Pages 构建时需要 node_modules 才能解析依赖）
 const { execSync } = await import('node:child_process');
-execSync('npm install --package-lock-only', { cwd: fnDir, stdio: 'inherit' });
+execSync('npm install --omit=dev', { cwd: fnDir, stdio: 'inherit' });
 
 console.log('EdgeOne Cloud Function source package prepared successfully');

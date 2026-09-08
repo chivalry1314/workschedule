@@ -1,11 +1,15 @@
+import type { Express } from 'express';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from './app.module.js';
 import { UsersService } from './users/users.service.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 
-export async function createNestApp() {
-  const app = await NestFactory.create(AppModule);
+export async function createNestApp(existingApp?: Express) {
+  const app = existingApp
+    ? await NestFactory.create(AppModule, new ExpressAdapter(existingApp))
+    : await NestFactory.create(AppModule);
 
   app.enableCors({
     origin: true,

@@ -1,1 +1,2 @@
-export declare function createNestApp(): Promise<import("@nestjs/common").INestApplication<any>>;
+import type { Express } from 'express';
+export declare function createNestApp(existingApp?: Express): Promise<import("@nestjs/common").INestApplication<any>>;
