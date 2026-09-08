@@ -218,8 +218,8 @@ let UsersService = class UsersService {
     async remove(id) {
         const numericId = Number(id);
         const user = await this.findOne(id);
-        if (user.isAdmin) {
-            throw new BadRequestException('管理员账号不允许删除');
+        if (user.username === 'admin') {
+            throw new BadRequestException('系统管理员账号不允许删除');
         }
         const { error: scDelErr } = await this.cloudbase
             .from('schedules')

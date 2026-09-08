@@ -29,7 +29,7 @@
         <div class="form-actions">
           <van-button round block type="primary" @click="onSubmit">保存</van-button>
           <van-button v-if="editing" round block type="warning" @click="openResetPassword">重置密码</van-button>
-          <van-button v-if="editing && !currentUser?.isAdmin" round block type="danger" @click="remove">删除</van-button>
+          <van-button v-if="editing && currentUser?.username !== 'admin'" round block type="danger" @click="remove">删除</van-button>
         </div>
       </div>
     </van-popup>
@@ -170,8 +170,8 @@ const onSubmit = async () => {
 }
 
 const remove = async () => {
-  if (currentUser.value?.isAdmin) {
-    showToast('管理员账号不允许删除')
+  if (currentUser.value?.username === 'admin') {
+    showToast('系统管理员账号不允许删除')
     return
   }
   await showConfirmDialog({

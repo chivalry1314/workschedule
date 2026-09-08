@@ -238,10 +238,10 @@ export class UsersService {
   async remove(id: bigint) {
     const numericId = Number(id);
 
-    // 禁止删除管理员账号
+    // 禁止删除系统内置 admin 账号
     const user = await this.findOne(id);
-    if (user.isAdmin) {
-      throw new BadRequestException('管理员账号不允许删除');
+    if (user.username === 'admin') {
+      throw new BadRequestException('系统管理员账号不允许删除');
     }
 
     // 级联删除该用户的排班记录
