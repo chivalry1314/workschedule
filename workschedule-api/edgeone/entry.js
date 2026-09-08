@@ -3,7 +3,7 @@ import { createNestApp } from './dist/bootstrap.js';
 
 const app = express();
 let ready = false;
-const readyPromise = createNestApp(app)
+const readyPromise = createNestApp(app, 'v1')
   .then(() => {
     ready = true;
   })

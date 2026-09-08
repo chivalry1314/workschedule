@@ -6,7 +6,7 @@ import { AppModule } from './app.module.js';
 import { UsersService } from './users/users.service.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 
-export async function createNestApp(existingApp?: Express) {
+export async function createNestApp(existingApp?: Express, prefix = 'api/v1') {
   const app = existingApp
     ? await NestFactory.create(AppModule, new ExpressAdapter(existingApp))
     : await NestFactory.create(AppModule);
@@ -16,7 +16,7 @@ export async function createNestApp(existingApp?: Express) {
     credentials: true,
   });
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix(prefix);
 
   app.useGlobalPipes(
     new ValidationPipe({
