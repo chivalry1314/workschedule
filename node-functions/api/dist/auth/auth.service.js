@@ -51,7 +51,7 @@ let AuthService = class AuthService {
             username: user.username,
             realName: user.realName,
             isAdmin: user.isAdmin,
-            firstLogin: user.firstLogin,
+            firstLogin: user.isAdmin ? user.firstLogin : false,
             role: user.role,
         };
     }

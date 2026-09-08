@@ -54,7 +54,8 @@ export class AuthService {
       username: user.username,
       realName: user.realName,
       isAdmin: user.isAdmin,
-      firstLogin: user.firstLogin,
+      // 仅管理员首次登录强制修改密码；普通用户不强制
+      firstLogin: user.isAdmin ? user.firstLogin : false,
       role: user.role,
     };
   }
