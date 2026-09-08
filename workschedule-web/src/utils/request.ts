@@ -7,7 +7,7 @@ const axiosInstance: AxiosInstance = axios.create({
   // 本地开发走 vite proxy（/api/v1）；
   // 部署到 GitHub Pages 时通过 VITE_API_BASE_URL 指向公网后端地址
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  timeout: 10000,
+  timeout: 30000,
 })
 
 function extractMessage(value: any): string {

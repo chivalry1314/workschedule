@@ -24,9 +24,6 @@
           </van-button>
         </div>
       </van-form>
-      <div class="tips">
-        默认管理员：admin / Admin1234
-      </div>
     </div>
   </div>
 </template>

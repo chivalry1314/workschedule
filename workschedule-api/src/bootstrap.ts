@@ -7,6 +7,7 @@ import { UsersService } from './users/users.service.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 
 export async function createNestApp(existingApp?: Express, prefix = 'api/v1') {
+  const t0 = Date.now();
   const app = existingApp
     ? await NestFactory.create(AppModule, new ExpressAdapter(existingApp))
     : await NestFactory.create(AppModule);
@@ -42,5 +43,6 @@ export async function createNestApp(existingApp?: Express, prefix = 'api/v1') {
     );
   }
 
+  console.log(`[Bootstrap] NestJS 应用初始化完成，prefix=${prefix}，耗时 ${Date.now() - t0}ms`);
   return app;
 }
