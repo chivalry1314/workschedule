@@ -29,7 +29,7 @@
         <div class="form-actions">
           <van-button round block type="primary" @click="onSubmit">保存</van-button>
           <van-button v-if="editing" round block type="warning" @click="openResetPassword">重置密码</van-button>
-          <van-button v-if="editing" round block type="danger" @click="remove">删除</van-button>
+          <van-button v-if="editing && !currentUser?.isAdmin" round block type="danger" @click="remove">删除</van-button>
         </div>
       </div>
     </van-popup>
@@ -69,6 +69,7 @@ const showCreate = ref(false)
 const showRolePicker = ref(false)
 const showResetPwd = ref(false)
 const editing = ref(false)
+const currentUser = ref<any>(null)
 
 const form = reactive({
   id: 0,
@@ -118,12 +119,14 @@ const resetForm = () => {
 
 const create = () => {
   editing.value = false
+  currentUser.value = null
   resetForm()
   showCreate.value = true
 }
 
 const edit = (user: any) => {
   editing.value = true
+  currentUser.value = user
   form.id = Number(user.id)
   form.username = user.username
   form.realName = user.realName
@@ -167,7 +170,15 @@ const onSubmit = async () => {
 }
 
 const remove = async () => {
-  await showConfirmDialog({ title: '确认删除', message: '删除后无法恢复，是否继续？' })
+  if (currentUser.value?.isAdmin) {
+    showToast('管理员账号不允许删除')
+    return
+  }
+  await showConfirmDialog({
+    title: '确认删除',
+    message:
+      '删除该人员将同时删除其排班记录和换班记录，且无法恢复。是否继续？',
+  })
   await withLoading(() => deleteUser(form.id), '删除中...')
   showToast('删除成功')
   showCreate.value = false

@@ -217,21 +217,22 @@ let UsersService = class UsersService {
     }
     async remove(id) {
         const numericId = Number(id);
-        const { count: scheduleCount, error: scErr } = await this.cloudbase
-            .from('schedules')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', numericId);
-        if (scErr)
-            throw scErr;
-        const { count: swapCount, error: swErr } = await this.cloudbase
-            .from('shift_swaps')
-            .select('*', { count: 'exact', head: true })
-            .or(`applicant_id.eq.${numericId},target_user_id.eq.${numericId}`);
-        if (swErr)
-            throw swErr;
-        if ((scheduleCount ?? 0) > 0 || (swapCount ?? 0) > 0) {
-            throw new BadRequestException('该用户存在排班或换班记录，无法删除');
+        const user = await this.findOne(id);
+        if (user.isAdmin) {
+            throw new BadRequestException('管理员账号不允许删除');
         }
+        const { error: scDelErr } = await this.cloudbase
+            .from('schedules')
+            .delete()
+            .eq('user_id', numericId);
+        if (scDelErr)
+            throw scDelErr;
+        const { error: swDelErr } = await this.cloudbase
+            .from('shift_swaps')
+            .delete()
+            .or(`applicant_id.eq.${numericId},target_user_id.eq.${numericId}`);
+        if (swDelErr)
+            throw swDelErr;
         const { error } = await this.cloudbase.from('users').delete().eq('id', numericId);
         if (error)
             throw error;
