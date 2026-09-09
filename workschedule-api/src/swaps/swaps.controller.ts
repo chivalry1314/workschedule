@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -67,5 +68,17 @@ export class SwapsController {
     @Param('id') id: string,
   ) {
     return this.swapsService.adminApprove(BigInt(id), adminId, false);
+  }
+
+  @Get('all')
+  @UseGuards(AdminGuard)
+  findAllNonAdmin() {
+    return this.swapsService.findAllNonAdmin();
+  }
+
+  @Delete(':id')
+  @UseGuards(AdminGuard)
+  remove(@Param('id') id: string) {
+    return this.swapsService.remove(BigInt(id));
   }
 }

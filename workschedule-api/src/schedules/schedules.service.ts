@@ -526,4 +526,28 @@ export class SchedulesService {
     if (error) throw error;
     return { message: '排班已驳回' };
   }
+
+  async clearUserSchedules(userId: bigint, year: number, month: number) {
+    const monthKey = this.formatMonthKey(year, month);
+    const uid = Number(userId);
+
+    const { data: userRows, error: userError } = await this.cloudbase
+      .from('users')
+      .select('id,is_admin')
+      .eq('id', uid)
+      .limit(1);
+    if (userError) throw userError;
+    const target = (userRows?.[0] as any) ?? null;
+    if (!target) throw new BadRequestException('人员不存在');
+    if (target.is_admin) throw new BadRequestException('不能清除管理员的排班');
+
+    const { error } = await this.cloudbase
+      .from('schedules')
+      .delete()
+      .eq('user_id', uid)
+      .eq('month_key', monthKey);
+    if (error) throw error;
+
+    return { message: '排班已清除' };
+  }
 }

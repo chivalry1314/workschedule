@@ -245,6 +245,50 @@ export class SwapsService {
     return { applied, received };
   }
 
+  async findAllNonAdmin() {
+    const { data: userRows, error: userError } = await this.cloudbase
+      .from('users')
+      .select('id')
+      .eq('is_admin', false);
+    if (userError) throw userError;
+
+    const userIds = ((userRows as any[]) ?? [])
+      .map((u) => Number(u.id))
+      .filter(Boolean);
+    if (userIds.length === 0) return { all: [] };
+
+    const ids = userIds.join(',');
+    const { data: swapRows, error } = await this.cloudbase
+      .from('shift_swaps')
+      .select('*')
+      .or(`applicant_id.in.(${ids}),target_user_id.in.(${ids})`)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    const all = await this.enrichSwaps((swapRows as any[]) ?? []);
+    return { all };
+  }
+
+  async remove(id: bigint) {
+    const { data, error } = await this.cloudbase
+      .from('shift_swaps')
+      .select('id')
+      .eq('id', Number(id))
+      .limit(1);
+    if (error) throw error;
+    if (!data || data.length === 0) {
+      throw new NotFoundException('换班申请不存在');
+    }
+
+    const { error: deleteError } = await this.cloudbase
+      .from('shift_swaps')
+      .delete()
+      .eq('id', Number(id));
+    if (deleteError) throw deleteError;
+
+    return { message: '删除成功' };
+  }
+
   async approve(id: bigint, currentUserId: bigint) {
     const swap = await this.fetchSwapById(id);
     if (swap.targetUserId !== Number(currentUserId)) {

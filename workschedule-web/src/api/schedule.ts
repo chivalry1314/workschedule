@@ -19,6 +19,10 @@ export const getUserSchedules = (userId: number, year: number, month: number) =>
 export const saveUserSchedules = (userId: number, data: { year: number; month: number; items: any[] }) =>
   request.put(`/schedules/users/${userId}`, data)
 
+// 管理员清除指定人员某月全部排班
+export const clearUserSchedules = (userId: number, year: number, month: number) =>
+  request.post(`/schedules/users/${userId}/clear`, null, { params: { year, month } })
+
 export const lockMonth = (id: number, year: number, month: number) =>
   request.post(`/schedules/${id}/lock`, null, { params: { year, month } })
 

@@ -1,63 +1,112 @@
 <template>
   <div class="my-schedule">
-    <div class="month-selector">
-      <van-button size="small" icon="arrow-left" @click="changeMonth(-1)" />
-      <span class="month-text">{{ year }}年{{ month }}月</span>
-      <van-button size="small" icon="arrow" @click="changeMonth(1)" />
-    </div>
-
-    <div class="status-bar">
-      <van-tag :type="statusType">{{ statusLabel }}</van-tag>
-    </div>
-
-    <div class="calendar">
-      <div class="week-header">
-        <span v-for="day in weekDays" :key="day">{{ day }}</span>
-      </div>
-      <div class="days-grid">
+    <template v-if="showUserList">
+      <div class="page-header">选择人员查看排班</div>
+      <div class="user-list">
         <div
-          v-for="day in days"
-          :key="day.date"
-          class="day-cell"
-          :class="{ empty: !day.date, today: day.isToday, selected: day.date === selectedDate }"
-          :style="dayStyle(day)"
-          @click="day.date && selectDate(day)"
+          v-for="user in nonAdminUsers"
+          :key="user.id"
+          class="user-card"
+          @click="enterUser(user.id)"
         >
-          <div class="day-number">{{ day.dayOfMonth || '' }}</div>
-          <div class="shift-name">{{ day.shiftName || '' }}</div>
+          <span class="user-name">{{ user.realName }}</span>
+          <van-icon name="arrow" />
         </div>
       </div>
-    </div>
+      <van-empty v-if="nonAdminUsers.length === 0" description="暂无可管理的非管理员人员" />
+    </template>
 
-    <van-popup v-model:show="showPicker" position="bottom" round>
-      <div class="picker-header">
-        <span>{{ selectedDate }} 值班选择</span>
-        <van-button size="small" type="danger" @click="clearShift">清空</van-button>
-      </div>
-      <div class="shift-options">
+    <template v-else>
+      <div class="schedule-header">
         <van-button
-          v-for="type in allowedShiftTypes"
-          :key="type.id"
-          class="shift-option"
-          :style="{ background: type.color, color: '#fff' }"
-          @click="setShift(type.id)"
+          v-if="isAdmin"
+          size="small"
+          icon="arrow-left"
+          @click="backToUserList"
         >
-          {{ type.name }}
+          返回
+        </van-button>
+        <span class="schedule-title">{{ pageTitle }}</span>
+      </div>
+
+      <div class="month-selector">
+        <van-button size="small" icon="arrow-left" @click="changeMonth(-1)" />
+        <span class="month-text">{{ year }}年{{ month }}月</span>
+        <van-button size="small" icon="arrow" @click="changeMonth(1)" />
+      </div>
+
+      <div class="status-bar">
+        <van-tag :type="statusType">{{ statusLabel }}</van-tag>
+        <van-button
+          v-if="isViewingOthers"
+          size="small"
+          type="danger"
+          @click="clearMonth"
+        >
+          清除本月排班
         </van-button>
       </div>
-    </van-popup>
+
+      <div class="calendar">
+        <div class="week-header">
+          <span v-for="day in weekDays" :key="day">{{ day }}</span>
+        </div>
+        <div class="days-grid">
+          <div
+            v-for="day in days"
+            :key="day.date"
+            class="day-cell"
+            :class="{ empty: !day.date, today: day.isToday, selected: day.date === selectedDate }"
+            :style="dayStyle(day)"
+            @click="day.date && selectDate(day)"
+          >
+            <div class="day-number">{{ day.dayOfMonth || '' }}</div>
+            <div class="shift-name">{{ day.shiftName || '' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <van-popup v-model:show="showPicker" position="bottom" round>
+        <div class="picker-header">
+          <span>{{ selectedDate }} 值班选择</span>
+          <van-button size="small" type="danger" @click="clearShift">清空</van-button>
+        </div>
+        <div class="shift-options">
+          <van-button
+            v-for="type in allowedShiftTypes"
+            :key="type.id"
+            class="shift-option"
+            :style="{ background: type.color, color: '#fff' }"
+            @click="setShift(type.id)"
+          >
+            {{ type.name }}
+          </van-button>
+        </div>
+      </van-popup>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { showToast } from 'vant'
+import { showToast, showConfirmDialog } from 'vant'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { getMySchedules, saveMySchedules } from '@/api/schedule'
+import {
+  getMySchedules,
+  getUserSchedules,
+  saveMySchedules,
+  saveUserSchedules,
+  clearUserSchedules,
+} from '@/api/schedule'
+import { getShiftTypes } from '@/api/shiftType'
+import { getUsers } from '@/api/user'
 import { getDefaultScheduleMonth } from '@/api/settings'
 import { withLoading } from '@/utils/loading'
 
 const userStore = useUserStore()
+const route = useRoute()
+const router = useRouter()
 
 const now = new Date()
 const year = ref(now.getFullYear())
@@ -68,6 +117,27 @@ const selectedDate = ref('')
 const showPicker = ref(false)
 const editable = ref(true)
 const lockReason = ref('')
+const users = ref<any[]>([])
+const allShiftTypes = ref<any[]>([])
+
+const isAdmin = computed(() => userStore.isAdmin)
+const viewUserId = computed(() => {
+  const id = route.query.userId
+  return id ? Number(id) : 0
+})
+const currentUserId = computed(() => userStore.userInfo?.id || 0)
+const isViewingOthers = computed(
+  () => isAdmin.value && viewUserId.value > 0 && viewUserId.value !== currentUserId.value,
+)
+const showUserList = computed(() => isAdmin.value && !route.query.userId)
+const nonAdminUsers = computed(() => users.value.filter((u) => !u.isAdmin && u.status === 1))
+const pageTitle = computed(() => {
+  if (isViewingOthers.value) {
+    const user = nonAdminUsers.value.find((u) => u.id === viewUserId.value)
+    return `${user?.realName || '未知'}的排班`
+  }
+  return '我的排班'
+})
 
 const weekDays = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -88,6 +158,7 @@ const statusType = computed(() => {
 })
 
 const allowedShiftTypes = computed(() => {
+  if (isViewingOthers.value) return allShiftTypes.value
   return userStore.userInfo?.role?.shiftTypes?.map((st: any) => st.shiftType) || []
 })
 
@@ -123,7 +194,10 @@ const dayStyle = (day: any) => {
 }
 
 const loadData = async () => {
-  const res = await getMySchedules(year.value, month.value)
+  if (showUserList.value) return
+  const res = isViewingOthers.value
+    ? await getUserSchedules(viewUserId.value, year.value, month.value)
+    : await getMySchedules(year.value, month.value)
   monthStatus.value = res.status
   editable.value = res.editable !== false
   lockReason.value = res.lockReason || ''
@@ -134,6 +208,18 @@ const loadData = async () => {
   }, {})
 }
 
+const loadUsers = async () => {
+  if (!isAdmin.value) return
+  const res = await getUsers()
+  users.value = res.list || []
+}
+
+const loadAllShiftTypes = async () => {
+  if (allShiftTypes.value.length > 0) return
+  const list = await getShiftTypes()
+  allShiftTypes.value = (list || []).filter((t: any) => t.status === 1)
+}
+
 const changeMonth = (delta: number) => {
   const d = new Date(year.value, month.value - 1 + delta, 1)
   year.value = d.getFullYear()
@@ -141,10 +227,13 @@ const changeMonth = (delta: number) => {
   loadData()
 }
 
-const selectDate = (day: any) => {
-  if (!editable.value) {
+const selectDate = async (day: any) => {
+  if (!isViewingOthers.value && !editable.value) {
     showToast(lockReason.value || '排班已锁定，不可修改')
     return
+  }
+  if (isViewingOthers.value) {
+    await loadAllShiftTypes()
   }
   selectedDate.value = day.date
   showPicker.value = true
@@ -153,7 +242,19 @@ const selectDate = (day: any) => {
 const setShift = async (shiftTypeId: number | null) => {
   if (!selectedDate.value) return
   const item = { workDate: selectedDate.value, shiftTypeId }
-  await withLoading(() => saveMySchedules({ year: year.value, month: month.value, items: [item] }))
+  if (isViewingOthers.value) {
+    await withLoading(() =>
+      saveUserSchedules(viewUserId.value, {
+        year: year.value,
+        month: month.value,
+        items: [item],
+      }),
+    )
+  } else {
+    await withLoading(() =>
+      saveMySchedules({ year: year.value, month: month.value, items: [item] }),
+    )
+  }
   showToast('保存成功')
   showPicker.value = false
   await loadData()
@@ -163,26 +264,99 @@ const clearShift = () => {
   setShift(null)
 }
 
+const enterUser = (id: number) => {
+  router.replace({ query: { userId: String(id) } })
+}
+
+const backToUserList = () => {
+  router.replace({ query: {} })
+}
+
+const clearMonth = async () => {
+  await showConfirmDialog({
+    title: '确认清除',
+    message: `确定要清除 ${pageTitle.value.replace('的排班', '')} ${year.value}年${month.value}月的所有排班吗？此操作不可恢复。`,
+  })
+  await withLoading(
+    () => clearUserSchedules(viewUserId.value, year.value, month.value),
+    '清除中...',
+  )
+  showToast('已清除')
+  await loadData()
+}
+
 const initDefaultMonth = async () => {
+  if (showUserList.value) return
   const defaultMonth = await getDefaultScheduleMonth()
   if (defaultMonth) {
     year.value = defaultMonth.year
     month.value = defaultMonth.month
-  } else {
-    await loadData()
   }
+  await loadData()
 }
 
 onMounted(() => {
-  withLoading(initDefaultMonth)
+  withLoading(async () => {
+    await loadUsers()
+    await initDefaultMonth()
+  })
 })
 
 watch(() => [year.value, month.value], loadData)
+watch(
+  () => route.query.userId,
+  async () => {
+    if (isViewingOthers.value) {
+      await initDefaultMonth()
+    }
+  },
+)
 </script>
 
 <style scoped>
 .my-schedule {
   padding: 12px;
+}
+
+.page-header {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #323233;
+}
+
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  padding: 14px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.user-name {
+  font-size: 15px;
+  color: #323233;
+}
+
+.schedule-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.schedule-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #323233;
 }
 
 .month-selector {

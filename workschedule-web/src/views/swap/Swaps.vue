@@ -1,6 +1,7 @@
 <template>
   <div class="swaps">
-    <van-tabs v-model:active="activeTab">
+    <template v-if="!userStore.isAdmin">
+      <van-tabs v-model:active="activeTab">
       <van-tab title="我发起的">
         <div class="list">
           <van-empty v-if="applied.length === 0" description="暂无发起的申请" />
@@ -94,7 +95,7 @@
       </van-tab>
     </van-tabs>
 
-    <div class="fab-wrap">
+    <div v-if="!userStore.isAdmin" class="fab-wrap">
       <van-button round type="primary" icon="plus" @click="openCreate">发起换班</van-button>
     </div>
 
@@ -208,6 +209,53 @@
         <div class="calendar-tip">请选择对方已排班的日期</div>
       </div>
     </van-popup>
+    </template>
+
+    <template v-else>
+      <div class="list">
+        <van-empty v-if="allSwaps.length === 0" description="暂无非管理员的换班记录" />
+        <div v-else class="card-list">
+          <div v-for="s in allSwaps" :key="s.id" class="swap-card">
+            <div class="card-header">
+              <span class="card-title">{{ s.applicant?.realName || '未知' }} 申请与 {{ s.targetUser?.realName || '对方' }} 换班</span>
+              <van-tag :type="statusTagType(s.status)">{{ statusText(s.status) }}</van-tag>
+            </div>
+            <div class="swap-detail">
+              <div class="party-row">
+                <span class="party-label">申请人</span>
+                <span class="party-date">{{ formatDate(s.applicantSchedule?.workDate) }}</span>
+                <van-tag
+                  v-if="s.applicantSchedule?.shiftType"
+                  :color="s.applicantSchedule.shiftType.color"
+                  text-color="#fff"
+                  class="shift-tag"
+                >{{ s.applicantSchedule.shiftType.name }}</van-tag>
+              </div>
+              <div class="exchange-line">
+                <van-icon name="exchange" />
+              </div>
+              <div class="party-row">
+                <span class="party-label">目标人</span>
+                <span class="party-date">{{ formatDate(s.targetSchedule?.workDate) }}</span>
+                <van-tag
+                  v-if="s.targetSchedule?.shiftType"
+                  :color="s.targetSchedule.shiftType.color"
+                  text-color="#fff"
+                  class="shift-tag"
+                >{{ s.targetSchedule.shiftType.name }}</van-tag>
+              </div>
+            </div>
+            <div class="card-footer">
+              <span class="reason">原因：{{ s.reason || '无' }}</span>
+              <span class="apply-time">申请于 {{ formatDateTime(s.createdAt) }}</span>
+            </div>
+            <div class="actions">
+              <van-button size="small" type="danger" @click="remove(s.id)">删除</van-button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -215,14 +263,24 @@
 import { ref, computed, onMounted } from 'vue'
 import { showToast, showConfirmDialog } from 'vant'
 import { useUserStore } from '@/stores/user'
-import { getSwaps, createSwap, approveSwap, rejectSwap, withdrawSwap } from '@/api/swap'
+import {
+  getSwaps,
+  getAllSwaps,
+  createSwap,
+  approveSwap,
+  rejectSwap,
+  withdrawSwap,
+  deleteSwap,
+} from '@/api/swap'
 import { getMySchedules, getAllSchedules, getUserSchedules } from '@/api/schedule'
+import { getDefaultScheduleMonth } from '@/api/settings'
 import { withLoading } from '@/utils/loading'
 
 const userStore = useUserStore()
 const activeTab = ref(0)
 const applied = ref<any[]>([])
 const received = ref<any[]>([])
+const allSwaps = ref<any[]>([])
 const showCreate = ref(false)
 const showCalendarPicker = ref(false)
 const showTargetUserPicker = ref(false)
@@ -237,6 +295,7 @@ const form = ref({
 })
 
 const now = new Date()
+const defaultMonth = ref<{ year: number; month: number } | null>(null)
 const calendarYear = ref(now.getFullYear())
 const calendarMonth = ref(now.getMonth() + 1)
 const calendarSchedules = ref<Record<string, any>>({})
@@ -332,6 +391,10 @@ const targetDayStyle = (day: any) => {
 }
 
 const loadData = async () => {
+  if (userStore.isAdmin) {
+    const res = await getAllSwaps()
+    allSwaps.value = res.all || []
+  }
   const res = await getSwaps()
   applied.value = res.applied || []
   received.value = res.received || []
@@ -367,7 +430,9 @@ const openCreate = () => {
   selectedDate.value = ''
   targetUserId.value = 0
   targetSelectedDate.value = ''
-  const d = new Date()
+  const d = defaultMonth.value
+    ? new Date(defaultMonth.value.year, defaultMonth.value.month - 1, 1)
+    : new Date()
   calendarYear.value = d.getFullYear()
   calendarMonth.value = d.getMonth() + 1
   targetCalendarYear.value = d.getFullYear()
@@ -521,8 +586,25 @@ const withdraw = async (id: number) => {
   loadData()
 }
 
-onMounted(() => {
+const initDefaultMonth = async () => {
+  defaultMonth.value = await getDefaultScheduleMonth()
+}
+
+const remove = async (id: number) => {
+  await showConfirmDialog({
+    title: '确认删除',
+    message: '删除后该换班记录将无法恢复，是否继续？',
+  })
+  await withLoading(() => deleteSwap(id), '删除中...')
+  showToast('已删除')
   loadData()
+}
+
+onMounted(() => {
+  withLoading(async () => {
+    await initDefaultMonth()
+    await loadData()
+  })
 })
 </script>
 

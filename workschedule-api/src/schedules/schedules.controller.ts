@@ -76,6 +76,16 @@ export class SchedulesController {
     return this.schedulesService.adminSaveUserSchedules(BigInt(userId), dto);
   }
 
+  @Post('users/:userId/clear')
+  @UseGuards(AdminGuard)
+  clearUserSchedules(
+    @Param('userId') userId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+  ) {
+    return this.schedulesService.clearUserSchedules(BigInt(userId), +year, +month);
+  }
+
   @Post(':id/lock')
   @UseGuards(AdminGuard)
   lockMonth(
