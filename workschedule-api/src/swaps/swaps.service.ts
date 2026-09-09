@@ -33,8 +33,12 @@ export class SwapsService {
       id: Number(sw.id),
       applicantId: Number(sw.applicant_id),
       applicantScheduleId: Number(sw.applicant_schedule_id),
+      applicantShiftTypeId: sw.applicant_shift_type_id
+        ? Number(sw.applicant_shift_type_id)
+        : null,
       targetUserId: sw.target_user_id ? Number(sw.target_user_id) : null,
       targetScheduleId: sw.target_schedule_id ? Number(sw.target_schedule_id) : null,
+      targetShiftTypeId: sw.target_shift_type_id ? Number(sw.target_shift_type_id) : null,
       swapType: Number(sw.swap_type),
       reason: sw.reason,
       status: Number(sw.status),
@@ -78,10 +82,23 @@ export class SwapsService {
       .in('id', scheduleIds);
     if (scheduleError) throw scheduleError;
 
-    const shiftTypeIds = (scheduleRows as any[])
+    // 换班成功后 schedules.shift_type_id 会被交换，
+    // 因此展示时要优先使用 shift_swaps 中记录的申请时班次。
+    const originalShiftTypeIds = swaps
+      .flatMap((s) => [
+        s.applicant_shift_type_id,
+        s.target_shift_type_id,
+      ])
+      .filter(Boolean)
+      .map((id) => Number(id));
+    const currentShiftTypeIds = (scheduleRows as any[])
       .map((s) => Number(s.shift_type_id))
       .filter(Boolean);
+    const shiftTypeIds = [
+      ...new Set([...originalShiftTypeIds, ...currentShiftTypeIds]),
+    ];
     const shiftTypeMap = await this.loadShiftTypes(shiftTypeIds);
+
     const scheduleMap = new Map(
       (scheduleRows as any[]).map((s) => [
         Number(s.id),
@@ -94,6 +111,18 @@ export class SwapsService {
         },
       ]),
     );
+
+    const scheduleWithOriginalShiftType = (
+      scheduleId: number,
+      originalShiftTypeId: number | null,
+    ) => {
+      const schedule = scheduleMap.get(scheduleId);
+      if (!schedule) return null;
+      const shiftType = originalShiftTypeId
+        ? shiftTypeMap.get(originalShiftTypeId) ?? null
+        : schedule.shiftType;
+      return { ...schedule, shiftType };
+    };
 
     return swaps.map((sw) => {
       const base = this.mapRawSwap(sw);
@@ -111,9 +140,15 @@ export class SwapsService {
               return { id: uid, realName: u?.real_name };
             })()
           : null,
-        applicantSchedule: scheduleMap.get(Number(sw.applicant_schedule_id)),
+        applicantSchedule: scheduleWithOriginalShiftType(
+          Number(sw.applicant_schedule_id),
+          base.applicantShiftTypeId,
+        ),
         targetSchedule: sw.target_schedule_id
-          ? scheduleMap.get(Number(sw.target_schedule_id))
+          ? scheduleWithOriginalShiftType(
+              Number(sw.target_schedule_id),
+              base.targetShiftTypeId,
+            )
           : null,
       };
     });
@@ -210,8 +245,14 @@ export class SwapsService {
     const { error } = await this.cloudbase.from('shift_swaps').insert({
       applicant_id: Number(applicantId),
       applicant_schedule_id: Number(dto.applicantScheduleId),
+      applicant_shift_type_id: applicantSchedule.shift_type_id
+        ? Number(applicantSchedule.shift_type_id)
+        : null,
       target_user_id: dto.targetUserId ? Number(dto.targetUserId) : null,
       target_schedule_id: dto.targetScheduleId ? Number(dto.targetScheduleId) : null,
+      target_shift_type_id: targetSchedule?.shift_type_id
+        ? Number(targetSchedule.shift_type_id)
+        : null,
       swap_type: Number(dto.swapType),
       reason: dto.reason && dto.reason.trim().length > 0 ? dto.reason.trim() : null,
       status: applicantMonthLocked || targetMonthLocked ? 4 : 0,
@@ -233,7 +274,6 @@ export class SwapsService {
           .from('shift_swaps')
           .select('*')
           .eq('target_user_id', Number(userId))
-          .in('status', [0, 4])
           .order('created_at', { ascending: false }),
       ]);
     if (aErr) throw aErr;
@@ -421,6 +461,32 @@ export class SwapsService {
     if (schedError) throw schedError;
     const rows = (schedRows as any[]) ?? [];
 
+    // 如果还有人员未选择某日期班次，该日期视为仍在排班中，
+    // 此时不校验规则3（每天每班次人数下限），避免排班未完成时阻止换班。
+    const { data: userRows, error: userError } = await this.cloudbase
+      .from('users')
+      .select('id')
+      .eq('is_admin', false);
+    if (userError) throw userError;
+    const nonAdminUserIds = new Set(
+      ((userRows as any[]) ?? []).map((u) => Number(u.id)).filter(Boolean),
+    );
+    const scheduledUsersByDate = new Map<string, Set<number>>();
+    for (const r of rows) {
+      const date = dayOf(r.work_date);
+      if (!scheduledUsersByDate.has(date)) {
+        scheduledUsersByDate.set(date, new Set());
+      }
+      scheduledUsersByDate.get(date)!.add(Number(r.user_id));
+    }
+    const hasUnscheduledUsers = (date: string) => {
+      const scheduled = scheduledUsersByDate.get(date) ?? new Set<number>();
+      for (const uid of nonAdminUserIds) {
+        if (!scheduled.has(uid)) return true;
+      }
+      return false;
+    };
+
     // 交换后某一天的 用户->班次 映射
     const dayMapAfterSwap = (date: string) => {
       const m = new Map<number, number | null>();
@@ -455,6 +521,11 @@ export class SwapsService {
           );
         }
         if (Number(rule.rule_type) === 3 && count < Number(rule.max_count)) {
+          if (hasUnscheduledUsers(date)) {
+            // 该日期仍有人员未选择班次，排班尚未完成，
+            // 后续排班会被规则3强制补足，此时不阻止换班。
+            continue;
+          }
           throw new BadRequestException(
             `${date} 当天【${nameOf(stId)}】至少需要 ${rule.max_count} 人值班，换班后将无法满足`,
           );

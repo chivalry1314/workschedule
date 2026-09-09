@@ -85,7 +85,7 @@
                 <span class="reason">原因：{{ s.reason || '无' }}</span>
                 <span class="apply-time">申请于 {{ formatDateTime(s.createdAt) }}</span>
               </div>
-              <div class="actions">
+              <div v-if="s.status === 0 || s.status === 4" class="actions">
                 <van-button size="small" type="primary" @click="approve(s.id)">同意</van-button>
                 <van-button size="small" type="danger" @click="reject(s.id)">拒绝</van-button>
               </div>

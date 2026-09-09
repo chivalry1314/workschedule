@@ -63,8 +63,10 @@ CREATE TABLE IF NOT EXISTS shift_swaps (
   id BIGSERIAL PRIMARY KEY,
   applicant_id BIGINT NOT NULL,
   applicant_schedule_id BIGINT NOT NULL,
+  applicant_shift_type_id BIGINT,
   target_user_id BIGINT,
   target_schedule_id BIGINT,
+  target_shift_type_id BIGINT,
   swap_type INT NOT NULL,
   reason VARCHAR(500),
   status INT DEFAULT 0,
@@ -73,6 +75,10 @@ CREATE TABLE IF NOT EXISTS shift_swaps (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   resolved_at TIMESTAMPTZ
 );
+
+-- 历史数据库迁移：为已创建的表补充申请时的班次字段
+ALTER TABLE shift_swaps ADD COLUMN IF NOT EXISTS applicant_shift_type_id BIGINT;
+ALTER TABLE shift_swaps ADD COLUMN IF NOT EXISTS target_shift_type_id BIGINT;
 
 CREATE INDEX IF NOT EXISTS idx_swaps_applicant_status ON shift_swaps(applicant_id, status);
 CREATE INDEX IF NOT EXISTS idx_swaps_target_status ON shift_swaps(target_user_id, status);
