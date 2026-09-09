@@ -12,12 +12,20 @@
         />
         <van-field
           v-model="form.password"
-          type="password"
+          :type="showPassword ? 'text' : 'password'"
           name="password"
           label="密码"
           placeholder="请输入密码"
           :rules="[{ required: true, message: '请填写密码' }]"
-        />
+        >
+          <template #right-icon>
+            <van-icon
+              :name="showPassword ? 'eye-o' : 'closed-eye'"
+              class="password-eye"
+              @click="showPassword = !showPassword"
+            />
+          </template>
+        </van-field>
         <div class="submit-wrap">
           <van-button round block type="primary" native-type="submit" :loading="loading">
             登录
@@ -37,6 +45,7 @@ import { useUserStore } from '@/stores/user'
 const router = useRouter()
 const userStore = useUserStore()
 const loading = ref(false)
+const showPassword = ref(false)
 
 const form = reactive({
   username: '',
@@ -89,6 +98,12 @@ const onSubmit = async () => {
 
 .submit-wrap {
   margin-top: 24px;
+}
+
+.password-eye {
+  font-size: 18px;
+  color: #969799;
+  padding: 4px;
 }
 
 .tips {
