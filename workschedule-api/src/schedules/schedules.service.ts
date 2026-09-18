@@ -6,6 +6,7 @@ import {
 import { CloudBaseService } from '../cloudbase/cloudbase.service.js';
 import { ScheduleWindowsService } from '../schedule-windows/schedule-windows.service.js';
 import { SaveScheduleDto } from './dto/save-schedule.dto.js';
+import { InitializeScheduleDto } from './dto/initialize-schedule.dto.js';
 
 @Injectable()
 export class SchedulesService {
@@ -188,6 +189,115 @@ export class SchedulesService {
     await this.applyScheduleItems(uid, monthKey, items, 2);
 
     return this.getMySchedules(BigInt(uid), year, month);
+  }
+
+  // 管理员初始化某月排班：将当月所有启用且非管理员人员的每一天都设置为指定值班类型。
+  // 该操作会先清空目标人员当月已有排班，再批量插入新记录，因此会覆盖原有数据。
+  async initializeSchedules(dto: InitializeScheduleDto) {
+    const { year, month, shiftTypeId } = dto;
+    const monthKey = this.formatMonthKey(year, month);
+    const shiftTypeIdNum = Number(shiftTypeId);
+
+    const { data: shiftTypeRows, error: shiftTypeError } = await this.cloudbase
+      .from('shift_types')
+      .select('id')
+      .eq('id', shiftTypeIdNum)
+      .eq('status', 1)
+      .limit(1);
+    if (shiftTypeError) throw shiftTypeError;
+    if (!shiftTypeRows || shiftTypeRows.length === 0) {
+      throw new BadRequestException('值班类型不存在或已停用');
+    }
+
+    const { data: userRows, error: userError } = await this.cloudbase
+      .from('users')
+      .select('id')
+      .eq('status', 1)
+      .eq('is_admin', false)
+      .order('id', { ascending: true });
+    if (userError) throw userError;
+
+    const users = (userRows as any[]) ?? [];
+    if (users.length === 0) {
+      return { initializedCount: 0, message: '没有需要初始化的非管理员人员' };
+    }
+
+    const userIds = users.map((u) => Number(u.id));
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const dates: string[] = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      dates.push(
+        `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      );
+    }
+
+    // 先清空目标人员当月的所有排班
+    const { error: deleteError } = await this.cloudbase
+      .from('schedules')
+      .delete()
+      .in('user_id', userIds)
+      .eq('month_key', monthKey);
+    if (deleteError) throw deleteError;
+
+    // 生成所有非管理员人员当月的排班记录
+    const records: any[] = [];
+    for (const uid of userIds) {
+      for (const workDate of dates) {
+        records.push({
+          user_id: uid,
+          shift_type_id: shiftTypeIdNum,
+          work_date: workDate,
+          month_key: monthKey,
+          status: 0,
+          source: 2,
+        });
+      }
+    }
+
+    // 批量插入，避免单次请求过大
+    const batchSize = 500;
+    for (let i = 0; i < records.length; i += batchSize) {
+      const batch = records.slice(i, i + batchSize);
+      const { error: insertError } = await this.cloudbase
+        .from('schedules')
+        .insert(batch);
+      if (insertError) throw insertError;
+    }
+
+    return {
+      initializedCount: userIds.length,
+      message: `已成功初始化 ${userIds.length} 人的排班`,
+    };
+  }
+
+  // 管理员清空某月排班：删除所有启用且非管理员人员当月的排班记录。
+  async clearAllSchedules(year: number, month: number) {
+    const monthKey = this.formatMonthKey(year, month);
+
+    const { data: userRows, error: userError } = await this.cloudbase
+      .from('users')
+      .select('id')
+      .eq('status', 1)
+      .eq('is_admin', false);
+    if (userError) throw userError;
+
+    const userIds = ((userRows as any[]) ?? []).map((u) => Number(u.id));
+    if (userIds.length === 0) {
+      return { clearedCount: 0, message: '没有需要清空的非管理员人员' };
+    }
+
+    const { error } = await this.cloudbase
+      .from('schedules')
+      .delete()
+      .in('user_id', userIds)
+      .eq('month_key', monthKey);
+    if (error) throw error;
+
+    return {
+      clearedCount: userIds.length,
+      message: `已清空 ${userIds.length} 人的排班`,
+    };
   }
 
   // 按天写入排班项（存在则更新，不存在则插入）。

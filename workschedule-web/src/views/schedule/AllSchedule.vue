@@ -6,8 +6,9 @@
       <van-button size="small" icon="arrow" @click="changeMonth(1)" />
     </div>
 
-    <div v-if="isAdmin" class="export-bar">
+    <div v-if="isAdmin" class="action-bar">
       <van-button size="small" type="primary" icon="down" @click="exportExcel">导出 Excel</van-button>
+      <van-button size="small" type="warning" icon="replay" @click="openInitPicker">初始化</van-button>
     </div>
 
     <div class="table-wrapper">
@@ -70,14 +71,52 @@
         </van-button>
       </div>
     </van-popup>
+
+    <van-popup v-model:show="showInitPicker" position="bottom" round>
+      <div class="picker-header">
+        <span>初始化排班</span>
+        <van-button size="small" @click="showInitPicker = false">取消</van-button>
+      </div>
+      <div class="shift-options">
+        <van-button
+          v-for="type in shiftTypes"
+          :key="type.id"
+          class="shift-option"
+          :class="{ active: selectedInitShiftTypeId === type.id }"
+          :style="initOptionStyle(type)"
+          @click="selectedInitShiftTypeId = type.id"
+        >
+          {{ type.name }}
+        </van-button>
+      </div>
+      <div class="picker-footer">
+        <van-button
+          block
+          type="primary"
+          :disabled="!selectedInitShiftTypeId"
+          @click="confirmInit"
+        >
+          确定
+        </van-button>
+        <van-button
+          block
+          plain
+          type="danger"
+          class="clear-all-btn"
+          @click="confirmClearAll"
+        >
+          清空当月排班
+        </van-button>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
-import { showToast } from 'vant'
+import { showToast, showConfirmDialog } from 'vant'
 import * as XLSX from 'xlsx'
-import { getAllSchedules, saveUserSchedules } from '@/api/schedule'
+import { getAllSchedules, saveUserSchedules, initializeSchedules, clearAllSchedules } from '@/api/schedule'
 import { getShiftTypes } from '@/api/shiftType'
 import { getDefaultScheduleMonth } from '@/api/settings'
 import { useUserStore } from '@/stores/user'
@@ -95,6 +134,8 @@ const showPicker = ref(false)
 const pickerDay = ref<DayInfo | null>(null)
 const pickerUser = ref<any>(null)
 const shiftTypes = ref<any[]>([])
+const showInitPicker = ref(false)
+const selectedInitShiftTypeId = ref<number | null>(null)
 
 interface DayInfo {
   date: string
@@ -179,6 +220,70 @@ const ensureShiftTypes = async () => {
   shiftTypes.value = (list || []).filter((t: any) => t.status === 1)
 }
 
+const getShiftTypeName = (id: number | null) => {
+  if (!id) return ''
+  const type = shiftTypes.value.find((t) => t.id === id)
+  return type?.name || ''
+}
+
+const initOptionStyle = (type: any) => {
+  const active = selectedInitShiftTypeId.value === type.id
+  return {
+    background: active ? type.color : '#f0f0f0',
+    color: active ? '#fff' : '#333',
+    borderColor: active ? type.color : '#e0e0e0',
+  }
+}
+
+const openInitPicker = async () => {
+  await ensureShiftTypes()
+  selectedInitShiftTypeId.value = null
+  showInitPicker.value = true
+}
+
+const confirmInit = async () => {
+  if (!selectedInitShiftTypeId.value) {
+    showToast('请选择值班类型')
+    return
+  }
+  const shiftTypeId = selectedInitShiftTypeId.value
+  const shiftTypeName = getShiftTypeName(shiftTypeId)
+  showInitPicker.value = false
+  await showConfirmDialog({
+    title: '确认初始化',
+    message: `确定要将 ${year.value}年${month.value}月 所有非管理员人员的排班初始化为【${shiftTypeName}】吗？此操作会覆盖已有排班。`,
+  })
+  await withLoading(
+    () =>
+      initializeSchedules({
+        year: year.value,
+        month: month.value,
+        shiftTypeId,
+      }),
+    '初始化中...',
+  )
+  showToast('初始化成功')
+  await loadData()
+}
+
+const confirmClearAll = async () => {
+  showInitPicker.value = false
+  await showConfirmDialog({
+    title: '确认清空',
+    message: `确定要清空 ${year.value}年${month.value}月 所有非管理员人员的排班吗？此操作不可恢复。`,
+  })
+  await withLoading(
+    () =>
+      clearAllSchedules({
+        year: year.value,
+        month: month.value,
+      }),
+    '清空中...',
+  )
+  showToast('已清空')
+  await loadData()
+}
+
 const onCellClick = async (day: DayInfo, user: any) => {
   pickerDay.value = day
   pickerUser.value = user
@@ -258,9 +363,10 @@ watch(() => [year.value, month.value], loadData)
   font-weight: bold;
 }
 
-.export-bar {
+.action-bar {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 12px;
 }
 
@@ -369,7 +475,19 @@ watch(() => [year.value, month.value], loadData)
 
 .shift-option {
   min-width: 80px;
-  border: none;
+  border: 1px solid transparent;
+}
+
+.shift-option.active {
+  font-weight: bold;
+}
+
+.picker-footer {
+  padding: 0 16px 24px;
+}
+
+.clear-all-btn {
+  margin-top: 12px;
 }
 
 .day-cell.weekend,

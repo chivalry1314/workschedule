@@ -13,6 +13,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { AdminGuard } from '../auth/guards/admin.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { SaveScheduleDto } from './dto/save-schedule.dto.js';
+import { InitializeScheduleDto } from './dto/initialize-schedule.dto.js';
+import { ClearAllSchedulesDto } from './dto/clear-all-schedules.dto.js';
 
 @Controller('schedules')
 @UseGuards(JwtAuthGuard)
@@ -84,6 +86,18 @@ export class SchedulesController {
     @Query('month') month: string,
   ) {
     return this.schedulesService.clearUserSchedules(BigInt(userId), +year, +month);
+  }
+
+  @Post('initialize')
+  @UseGuards(AdminGuard)
+  initializeSchedules(@Body() dto: InitializeScheduleDto) {
+    return this.schedulesService.initializeSchedules(dto);
+  }
+
+  @Post('clear-all')
+  @UseGuards(AdminGuard)
+  clearAllSchedules(@Body() dto: ClearAllSchedulesDto) {
+    return this.schedulesService.clearAllSchedules(dto.year, dto.month);
   }
 
   @Post(':id/lock')
