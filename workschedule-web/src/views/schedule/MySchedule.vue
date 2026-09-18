@@ -37,14 +37,24 @@
 
       <div class="status-bar">
         <van-tag :type="statusType">{{ statusLabel }}</van-tag>
-        <van-button
-          v-if="isViewingOthers"
-          size="small"
-          type="danger"
-          @click="clearMonth"
-        >
-          清除本月排班
-        </van-button>
+        <div class="status-actions">
+          <van-button
+            v-if="!isViewingOthers"
+            size="small"
+            type="primary"
+            @click="checkSchedule"
+          >
+            排班检查
+          </van-button>
+          <van-button
+            v-if="isViewingOthers"
+            size="small"
+            type="danger"
+            @click="clearMonth"
+          >
+            清除本月排班
+          </van-button>
+        </div>
       </div>
 
       <div class="calendar">
@@ -83,6 +93,37 @@
           </van-button>
         </div>
       </van-popup>
+
+      <van-popup v-model:show="showCheckPopup" position="bottom" round>
+        <div class="picker-header">
+          <span>{{ year }}年{{ month }}月 排班检查</span>
+          <van-button size="small" @click="showCheckPopup = false">关闭</van-button>
+        </div>
+        <div class="check-body">
+          <van-empty
+            v-if="checkResult.length === 0"
+            description="本月未设置每人每月规则"
+          />
+          <div v-else class="check-list">
+            <div
+              v-for="item in checkResult"
+              :key="item.shiftTypeId"
+              class="check-item"
+              :class="{ invalid: !item.isValid }"
+            >
+              <div class="check-row">
+                <van-tag :color="item.color">{{ item.name }}</van-tag>
+                <span class="check-status" :class="{ 'status-invalid': !item.isValid }">
+                  {{ item.isValid ? '合规' : `超出 ${item.actualCount - item.maxCount} 天` }}
+                </span>
+              </div>
+              <div class="check-count">
+                已排 {{ item.actualCount }} 天 / 上限 {{ item.maxCount }} 天
+              </div>
+            </div>
+          </div>
+        </div>
+      </van-popup>
     </template>
   </div>
 </template>
@@ -102,7 +143,17 @@ import {
 import { getShiftTypes } from '@/api/shiftType'
 import { getUsers } from '@/api/user'
 import { getDefaultScheduleMonth } from '@/api/settings'
+import { getScheduleRules } from '@/api/scheduleRule'
 import { withLoading } from '@/utils/loading'
+
+interface CheckResultItem {
+  shiftTypeId: number
+  name: string
+  color: string
+  maxCount: number
+  actualCount: number
+  isValid: boolean
+}
 
 const userStore = useUserStore()
 const route = useRoute()
@@ -119,6 +170,8 @@ const editable = ref(true)
 const lockReason = ref('')
 const users = ref<any[]>([])
 const allShiftTypes = ref<any[]>([])
+const showCheckPopup = ref(false)
+const checkResult = ref<CheckResultItem[]>([])
 
 const isAdmin = computed(() => userStore.isAdmin)
 const viewUserId = computed(() => {
@@ -218,6 +271,37 @@ const loadAllShiftTypes = async () => {
   if (allShiftTypes.value.length > 0) return
   const list = await getShiftTypes()
   allShiftTypes.value = (list || []).filter((t: any) => t.status === 1)
+}
+
+const checkSchedule = async () => {
+  const monthKey = `${year.value}-${String(month.value).padStart(2, '0')}`
+  const rules = await getScheduleRules(monthKey)
+  const monthlyRules = (rules || []).filter((r: any) => Number(r.ruleType) === 1)
+
+  const actualCountMap = new Map<number, number>()
+  for (const s of Object.values(schedules.value)) {
+    if (!s?.shiftType?.id) continue
+    const id = Number(s.shiftType.id)
+    actualCountMap.set(id, (actualCountMap.get(id) ?? 0) + 1)
+  }
+
+  const allTypes = isViewingOthers.value ? allShiftTypes.value : allowedShiftTypes.value
+  checkResult.value = monthlyRules.map((rule: any) => {
+    const shiftTypeId = Number(rule.shiftTypeId)
+    const type = allTypes.find((t: any) => Number(t.id) === shiftTypeId)
+    const actualCount = actualCountMap.get(shiftTypeId) ?? 0
+    const maxCount = Number(rule.maxCount)
+    return {
+      shiftTypeId,
+      name: type?.name || `班次${shiftTypeId}`,
+      color: type?.color || '#969799',
+      maxCount,
+      actualCount,
+      isValid: actualCount <= maxCount,
+    }
+  })
+
+  showCheckPopup.value = true
 }
 
 const changeMonth = (delta: number) => {
@@ -452,5 +536,55 @@ watch(
 
 .shift-option {
   border-radius: 8px;
+}
+
+.status-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-body {
+  padding: 16px;
+  min-height: 200px;
+}
+
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.check-item {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #eee;
+}
+
+.check-item.invalid {
+  border-color: #ee0a24;
+  background: #fff5f5;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.check-status {
+  font-size: 13px;
+  color: #07c160;
+}
+
+.check-status.status-invalid {
+  color: #ee0a24;
+}
+
+.check-count {
+  font-size: 13px;
+  color: #666;
 }
 </style>
