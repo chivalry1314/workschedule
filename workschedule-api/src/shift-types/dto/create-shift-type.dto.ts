@@ -24,4 +24,8 @@ export class CreateShiftTypeDto {
   @IsInt()
   @IsOptional()
   status?: number;
+
+  @IsInt()
+  @IsOptional()
+  attendanceType?: number;
 }

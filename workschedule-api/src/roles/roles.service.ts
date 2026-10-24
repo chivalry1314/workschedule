@@ -44,10 +44,18 @@ export class RolesService {
     if (ids.length > 0) {
       const { data: stRows, error: stError } = await this.cloudbase
         .from('shift_types')
-        .select('id,name,code,color')
+        .select('id,name,code,color,attendance_type')
         .in('id', ids);
       if (stError) throw stError;
-      shiftTypes = (stRows as any[]).map((st) => ({ shiftType: st }));
+      shiftTypes = (stRows as any[]).map((st) => ({
+        shiftType: {
+          id: st.id,
+          name: st.name,
+          code: st.code,
+          color: st.color,
+          attendanceType: st.attendance_type,
+        },
+      }));
     }
 
     return {

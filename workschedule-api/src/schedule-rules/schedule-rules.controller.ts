@@ -16,7 +16,7 @@ export class ScheduleRulesController {
   @Put()
   @UseGuards(AdminGuard)
   replaceAll(
-    @Body() body: { monthKey: string; rules: { ruleType: number; shiftTypeId: number; maxCount: number }[] },
+    @Body() body: { monthKey: string; rules: { ruleType: number; shiftTypeId?: number; attendanceType?: number; maxCount: number }[] },
   ) {
     return this.scheduleRulesService.replaceAll(body?.monthKey, body?.rules ?? []);
   }

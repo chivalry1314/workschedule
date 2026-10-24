@@ -7,6 +7,7 @@ export interface CreateShiftTypeForm {
   timeRange?: string
   remark?: string
   status?: number
+  attendanceType?: number
 }
 
 export const getShiftTypes = () => request.get('/shift-types')

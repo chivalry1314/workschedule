@@ -21,6 +21,7 @@ export class ShiftTypesService {
       timeRange: row.time_range,
       remark: row.remark,
       status: row.status,
+      attendanceType: row.attendance_type,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -43,13 +44,14 @@ export class ShiftTypesService {
       time_range: dto.timeRange ?? null,
       remark: dto.remark ?? null,
       status: dto.status ?? 1,
+      attendance_type: dto.attendanceType ?? 1,
     };
 
     const { data, error } = await this.cloudbase
       .from('shift_types')
       .insert(insert)
       .select(
-        'id,name,code,color,time_range,remark,status,created_at,updated_at',
+        'id,name,code,color,time_range,remark,status,attendance_type,created_at,updated_at',
       );
     if (error) throw error;
 
@@ -60,7 +62,7 @@ export class ShiftTypesService {
     const { data, error } = await this.cloudbase
       .from('shift_types')
       .select(
-        'id,name,code,color,time_range,remark,status,created_at,updated_at',
+        'id,name,code,color,time_range,remark,status,attendance_type,created_at,updated_at',
       )
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -72,7 +74,7 @@ export class ShiftTypesService {
     const { data, error } = await this.cloudbase
       .from('shift_types')
       .select(
-        'id,name,code,color,time_range,remark,status,created_at,updated_at',
+        'id,name,code,color,time_range,remark,status,attendance_type,created_at,updated_at',
       )
       .eq('id', id)
       .limit(1);
@@ -91,6 +93,7 @@ export class ShiftTypesService {
     if (dto.color !== undefined) update.color = dto.color;
     if (dto.timeRange !== undefined) update.time_range = dto.timeRange ?? null;
     if (dto.remark !== undefined) update.remark = dto.remark ?? null;
+    if (dto.attendanceType !== undefined) update.attendance_type = dto.attendanceType;
 
     if (Object.keys(update).length === 0) return this.findOne(id);
 

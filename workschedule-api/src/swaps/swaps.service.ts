@@ -160,7 +160,7 @@ export class SwapsService {
 
     const { data, error } = await this.cloudbase
       .from('shift_types')
-      .select('id,name,color')
+      .select('id,name,color,attendance_type')
       .in('id', uniqueIds);
     if (error) throw error;
 
@@ -446,7 +446,7 @@ export class SwapsService {
     const months = [...new Set([appMonth, tgtMonth])];
     const { data: ruleRows, error: ruleError } = await this.cloudbase
       .from('schedule_rules')
-      .select('month_key,rule_type,shift_type_id,max_count')
+      .select('month_key,rule_type,shift_type_id,attendance_type,max_count')
       .in('month_key', months);
     if (ruleError) throw ruleError;
     const rules = ((ruleRows as any[]) ?? []).filter((r) =>
@@ -500,40 +500,73 @@ export class SwapsService {
       return m;
     };
 
-    const shiftTypeIds = [
-      ...new Set(rules.map((r) => Number(r.shift_type_id)).filter(Boolean)),
-    ];
-    const nameMap = await this.loadShiftTypes(shiftTypeIds);
-    const nameOf = (id: number) => nameMap.get(id)?.name ?? String(id);
+    // 加载所有班次，建立 id -> 考勤类型 映射
+    const { data: shiftTypeRows, error: stError } = await this.cloudbase
+      .from('shift_types')
+      .select('id,name,attendance_type');
+    if (stError) throw stError;
+    const shiftTypeMap = new Map<number, { name: string; attendanceType: number }>();
+    for (const st of (shiftTypeRows as any[]) ?? []) {
+      shiftTypeMap.set(Number(st.id), {
+        name: st.name,
+        attendanceType: Number(st.attendance_type),
+      });
+    }
+    const attendanceOf = (stId: number | null) => {
+      if (!stId) return null;
+      return shiftTypeMap.get(Number(stId))?.attendanceType ?? null;
+    };
+    const nameOf = (id: number) => shiftTypeMap.get(id)?.name ?? String(id);
+    const attendanceName = (type: number) => (type === 1 ? '工作' : '休息');
 
-    // 规则2（每天每班次人数上限）与规则3（每天每班次人数下限）：
+    // 规则2（每天人数上限）与规则3（每天人数下限）：
     // 只有交换涉及的两个日期的构成会变化，只检查这两天
     for (const date of [appDate, tgtDate]) {
       const dateMonth = date.slice(0, 7);
       const m = dayMapAfterSwap(date);
+      const stValues = [...m.values()];
       for (const rule of rules) {
         if (String(rule.month_key) !== dateMonth) continue;
-        const stId = Number(rule.shift_type_id);
-        const count = [...m.values()].filter((v) => v === stId).length;
-        if (Number(rule.rule_type) === 2 && count > Number(rule.max_count)) {
-          throw new BadRequestException(
-            `${date} 当天【${nameOf(stId)}】最多 ${rule.max_count} 人，换班后将超出限制`,
-          );
-        }
-        if (Number(rule.rule_type) === 3 && count < Number(rule.max_count)) {
-          if (hasUnscheduledUsers(date)) {
-            // 该日期仍有人员未选择班次，排班尚未完成，
-            // 后续排班会被规则3强制补足，此时不阻止换班。
-            continue;
+        const maxCount = Number(rule.max_count);
+        if (rule.shift_type_id) {
+          const stId = Number(rule.shift_type_id);
+          const count = stValues.filter((v) => v === stId).length;
+          if (Number(rule.rule_type) === 2 && count > maxCount) {
+            throw new BadRequestException(
+              `${date} 当天【${nameOf(stId)}】最多 ${maxCount} 人，换班后将超出限制`,
+            );
           }
-          throw new BadRequestException(
-            `${date} 当天【${nameOf(stId)}】至少需要 ${rule.max_count} 人值班，换班后将无法满足`,
-          );
+          if (Number(rule.rule_type) === 3 && count < maxCount) {
+            if (hasUnscheduledUsers(date)) {
+              // 该日期仍有人员未选择班次，排班尚未完成，
+              // 后续排班会被规则3强制补足，此时不阻止换班。
+              continue;
+            }
+            throw new BadRequestException(
+              `${date} 当天【${nameOf(stId)}】至少需要 ${maxCount} 人值班，换班后将无法满足`,
+            );
+          }
+        } else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+          const at = Number(rule.attendance_type);
+          const count = stValues.filter((v) => attendanceOf(v) === at).length;
+          if (Number(rule.rule_type) === 2 && count > maxCount) {
+            throw new BadRequestException(
+              `${date} 当天【${attendanceName(at)}】最多 ${maxCount} 人，换班后将超出限制`,
+            );
+          }
+          if (Number(rule.rule_type) === 3 && count < maxCount) {
+            if (hasUnscheduledUsers(date)) {
+              continue;
+            }
+            throw new BadRequestException(
+              `${date} 当天【${attendanceName(at)}】至少需要 ${maxCount} 人值班，换班后将无法满足`,
+            );
+          }
         }
       }
     }
 
-    // 规则1（每人每月每班次数量上限）：分别检查双方在自己月份交换后的数量
+    // 规则1（每人每月数量上限）：分别检查双方在自己月份交换后的数量
     const monthCountAfterSwap = (
       userId: number,
       month: string,
@@ -541,6 +574,7 @@ export class SwapsService {
       overrideSt: number | null,
     ) => {
       const counts = new Map<number, number>();
+      const attendanceCounts = new Map<number, number>();
       for (const r of rows) {
         if (String(r.month_key) !== month || Number(r.user_id) !== userId) continue;
         const d = dayOf(r.work_date);
@@ -550,9 +584,15 @@ export class SwapsService {
             : r.shift_type_id
               ? Number(r.shift_type_id)
               : null;
-        if (st) counts.set(st, (counts.get(st) ?? 0) + 1);
+        if (st) {
+          counts.set(st, (counts.get(st) ?? 0) + 1);
+          const at = attendanceOf(st);
+          if (at !== null) {
+            attendanceCounts.set(at, (attendanceCounts.get(at) ?? 0) + 1);
+          }
+        }
       }
-      return counts;
+      return { counts, attendanceCounts };
     };
 
     const parties = [
@@ -560,15 +600,25 @@ export class SwapsService {
       { userId: tgtUserId, month: tgtMonth, date: tgtDate, st: tgtNewSt },
     ];
     for (const p of parties) {
-      const counts = monthCountAfterSwap(p.userId, p.month, p.date, p.st);
+      const { counts, attendanceCounts } = monthCountAfterSwap(p.userId, p.month, p.date, p.st);
       for (const rule of rules) {
         if (Number(rule.rule_type) !== 1 || String(rule.month_key) !== p.month) continue;
-        const stId = Number(rule.shift_type_id);
-        const count = counts.get(stId) ?? 0;
-        if (count > Number(rule.max_count)) {
-          throw new BadRequestException(
-            `【${nameOf(stId)}】每人每月最多排 ${rule.max_count} 天，换班后将超出限制`,
-          );
+        if (rule.shift_type_id) {
+          const stId = Number(rule.shift_type_id);
+          const count = counts.get(stId) ?? 0;
+          if (count > Number(rule.max_count)) {
+            throw new BadRequestException(
+              `【${nameOf(stId)}】每人每月最多排 ${rule.max_count} 天，换班后将超出限制`,
+            );
+          }
+        } else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+          const at = Number(rule.attendance_type);
+          const count = attendanceCounts.get(at) ?? 0;
+          if (count > Number(rule.max_count)) {
+            throw new BadRequestException(
+              `【${attendanceName(at)}】每人每月最多排 ${rule.max_count} 天，换班后将超出限制`,
+            );
+          }
         }
       }
     }

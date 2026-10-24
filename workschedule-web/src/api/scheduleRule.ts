@@ -2,7 +2,8 @@ import request from '@/utils/request'
 
 export interface ScheduleRuleItem {
   ruleType: number
-  shiftTypeId: number
+  shiftTypeId?: number
+  attendanceType?: number
   maxCount: number
 }
 

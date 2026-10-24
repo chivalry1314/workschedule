@@ -1,5 +1,6 @@
 -- 在 CloudBase 控制台 PostgreSQL 执行器中一次性执行此脚本
 -- 执行后，后端启动时会自动插入默认管理员账号 admin / Admin1234
+-- 注意：此脚本用于全新部署；已有数据的数据库请按 migrations/ 目录中的编号顺序执行增量迁移。
 
 CREATE TABLE IF NOT EXISTS roles (
   id BIGSERIAL PRIMARY KEY,
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS shift_types (
   time_range VARCHAR(64),
   remark VARCHAR(255),
   status INT DEFAULT 1,
+  attendance_type INT NOT NULL DEFAULT 1,  -- 1=工作，0=休息
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -87,13 +89,12 @@ CREATE TABLE IF NOT EXISTS schedule_rules (
   id BIGSERIAL PRIMARY KEY,
   month_key VARCHAR(7) NOT NULL,       -- 规则生效月份，如 2026-09
   rule_type INT NOT NULL,              -- 1: 每人每月每班次数量上限; 2: 每天每班次人数上限; 3: 每天每班次人数下限
-  shift_type_id BIGINT NOT NULL,
+  shift_type_id BIGINT,                -- 按班次规则时必填；按考勤规则时为 NULL
+  attendance_type INT,                 -- 按考勤规则时 1=工作/0=休息；按班次规则时为 NULL
   max_count INT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_schedule_rules_unique ON schedule_rules (month_key, rule_type, shift_type_id);
 
 CREATE TABLE IF NOT EXISTS schedule_windows (
   id BIGSERIAL PRIMARY KEY,
@@ -120,6 +121,6 @@ CREATE TABLE IF NOT EXISTS settings (
 -- 或使用控制台提供的角色名替换后再执行 GRANT 语句。
 
 -- 插入系统默认班次：休息
-INSERT INTO shift_types (name, code, color, status)
-VALUES ('休息', '休', '#FFD700', 1)
+INSERT INTO shift_types (name, code, color, status, attendance_type)
+VALUES ('休息', '休', '#FFD700', 1, 0)
 ON CONFLICT (code) DO NOTHING;

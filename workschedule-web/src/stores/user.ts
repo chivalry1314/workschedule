@@ -12,7 +12,7 @@ export interface UserInfo {
   role: {
     id: number
     name: string
-    shiftTypes: { shiftType: { id: number; name: string; color: string } }[]
+    shiftTypes: { shiftType: { id: number; name: string; code: string; color: string; attendanceType: number } }[]
   }
 }
 

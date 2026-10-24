@@ -35,6 +35,9 @@
       <div v-for="type in shiftTypes" :key="type.id" class="rule-row">
         <div class="rule-name">
           <van-tag :color="type.color">{{ type.name }}</van-tag>
+          <van-tag :type="type.attendanceType === 1 ? 'primary' : 'warning'">
+            {{ type.attendanceType === 1 ? '工作' : '休息' }}
+          </van-tag>
         </div>
         <van-field
           v-model="monthlyLimits[type.id]"
@@ -57,6 +60,35 @@
       </div>
     </van-cell-group>
 
+    <div class="attendance-rules">
+      <div class="attendance-title">按考勤类型约束</div>
+      <div v-for="at in [1, 0]" :key="at" class="rule-row">
+        <div class="rule-name">
+          <van-tag :type="at === 1 ? 'primary' : 'warning'">
+            {{ at === 1 ? '工作' : '休息' }}
+          </van-tag>
+        </div>
+        <van-field
+          v-model="attendanceLimits[at].monthly"
+          type="number"
+          label="每人每月≤"
+          placeholder="不限"
+        />
+        <van-field
+          v-model="attendanceLimits[at].daily"
+          type="number"
+          label="每天人数≤"
+          placeholder="不限"
+        />
+        <van-field
+          v-model="attendanceLimits[at].minDaily"
+          type="number"
+          label="每天人数≥"
+          placeholder="不限"
+        />
+      </div>
+    </div>
+
     <div class="save-wrap">
       <van-button round block type="primary" :loading="saving" @click="onSave">保存规则</van-button>
     </div>
@@ -78,6 +110,10 @@ const shiftTypes = ref<any[]>([])
 const monthlyLimits = reactive<Record<number, string>>({})
 const dailyLimits = reactive<Record<number, string>>({})
 const minDailyLimits = reactive<Record<number, string>>({})
+const attendanceLimits = reactive<Record<number, { monthly: string; daily: string; minDaily: string }>>({
+  1: { monthly: '', daily: '', minDaily: '' },
+  0: { monthly: '', daily: '', minDaily: '' },
+})
 const saving = ref(false)
 const windowStart = ref('')
 const windowEnd = ref('')
@@ -118,6 +154,8 @@ const resetLimits = () => {
   for (const key of Object.keys(monthlyLimits)) delete monthlyLimits[Number(key)]
   for (const key of Object.keys(dailyLimits)) delete dailyLimits[Number(key)]
   for (const key of Object.keys(minDailyLimits)) delete minDailyLimits[Number(key)]
+  attendanceLimits[1] = { monthly: '', daily: '', minDaily: '' }
+  attendanceLimits[0] = { monthly: '', daily: '', minDaily: '' }
 }
 
 const loadData = async () => {
@@ -129,13 +167,24 @@ const loadData = async () => {
   ])
   shiftTypes.value = (types || []).filter((t: any) => t.status === 1)
   for (const r of rules || []) {
-    const stId = Number(r.shiftTypeId)
-    if (Number(r.ruleType) === 1) {
-      monthlyLimits[stId] = String(r.maxCount)
-    } else if (Number(r.ruleType) === 2) {
-      dailyLimits[stId] = String(r.maxCount)
-    } else if (Number(r.ruleType) === 3) {
-      minDailyLimits[stId] = String(r.maxCount)
+    if (r.shiftTypeId !== undefined && r.shiftTypeId !== null) {
+      const stId = Number(r.shiftTypeId)
+      if (Number(r.ruleType) === 1) {
+        monthlyLimits[stId] = String(r.maxCount)
+      } else if (Number(r.ruleType) === 2) {
+        dailyLimits[stId] = String(r.maxCount)
+      } else if (Number(r.ruleType) === 3) {
+        minDailyLimits[stId] = String(r.maxCount)
+      }
+    } else if (r.attendanceType !== undefined && r.attendanceType !== null) {
+      const at = Number(r.attendanceType)
+      if (Number(r.ruleType) === 1) {
+        attendanceLimits[at].monthly = String(r.maxCount)
+      } else if (Number(r.ruleType) === 2) {
+        attendanceLimits[at].daily = String(r.maxCount)
+      } else if (Number(r.ruleType) === 3) {
+        attendanceLimits[at].minDaily = String(r.maxCount)
+      }
     }
   }
 }
@@ -148,7 +197,7 @@ const changeMonth = (delta: number) => {
 }
 
 const onSave = async () => {
-  const rules: { ruleType: number; shiftTypeId: number; maxCount: number }[] = []
+  const rules: { ruleType: number; shiftTypeId?: number; attendanceType?: number; maxCount: number }[] = []
   for (const t of shiftTypes.value) {
     const stId = Number(t.id)
     const monthly = parseInt(monthlyLimits[stId] || '', 10)
@@ -162,6 +211,20 @@ const onSave = async () => {
     const minDaily = parseInt(minDailyLimits[stId] || '', 10)
     if (!isNaN(minDaily) && minDaily > 0) {
       rules.push({ ruleType: 3, shiftTypeId: stId, maxCount: minDaily })
+    }
+  }
+  for (const at of [1, 0]) {
+    const monthly = parseInt(attendanceLimits[at].monthly || '', 10)
+    const daily = parseInt(attendanceLimits[at].daily || '', 10)
+    const minDaily = parseInt(attendanceLimits[at].minDaily || '', 10)
+    if (!isNaN(monthly) && monthly > 0) {
+      rules.push({ ruleType: 1, attendanceType: at, maxCount: monthly })
+    }
+    if (!isNaN(daily) && daily > 0) {
+      rules.push({ ruleType: 2, attendanceType: at, maxCount: daily })
+    }
+    if (!isNaN(minDaily) && minDaily > 0) {
+      rules.push({ ruleType: 3, attendanceType: at, maxCount: minDaily })
     }
   }
   saving.value = true
@@ -254,6 +317,19 @@ onMounted(loadData)
 
 .rule-name {
   padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attendance-rules {
+  margin-top: 16px;
+}
+
+.attendance-title {
+  font-size: 14px;
+  color: #666;
+  padding: 8px 16px;
 }
 
 .save-wrap {

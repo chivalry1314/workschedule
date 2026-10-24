@@ -147,7 +147,8 @@ import { getScheduleRules } from '@/api/scheduleRule'
 import { withLoading } from '@/utils/loading'
 
 interface CheckResultItem {
-  shiftTypeId: number
+  shiftTypeId?: number
+  attendanceType?: number
   name: string
   color: string
   maxCount: number
@@ -279,22 +280,39 @@ const checkSchedule = async () => {
   const monthlyRules = (rules || []).filter((r: any) => Number(r.ruleType) === 1)
 
   const actualCountMap = new Map<number, number>()
+  const actualAttendanceCountMap = new Map<number, number>()
   for (const s of Object.values(schedules.value)) {
-    if (!s?.shiftType?.id) continue
+    if (!s?.shiftType) continue
     const id = Number(s.shiftType.id)
     actualCountMap.set(id, (actualCountMap.get(id) ?? 0) + 1)
+    const at = s.shiftType.attendanceType
+    if (at !== undefined && at !== null) {
+      actualAttendanceCountMap.set(Number(at), (actualAttendanceCountMap.get(Number(at)) ?? 0) + 1)
+    }
   }
 
   const allTypes = isViewingOthers.value ? allShiftTypes.value : allowedShiftTypes.value
   checkResult.value = monthlyRules.map((rule: any) => {
-    const shiftTypeId = Number(rule.shiftTypeId)
-    const type = allTypes.find((t: any) => Number(t.id) === shiftTypeId)
-    const actualCount = actualCountMap.get(shiftTypeId) ?? 0
     const maxCount = Number(rule.maxCount)
+    if (rule.shiftTypeId !== undefined && rule.shiftTypeId !== null) {
+      const shiftTypeId = Number(rule.shiftTypeId)
+      const type = allTypes.find((t: any) => Number(t.id) === shiftTypeId)
+      const actualCount = actualCountMap.get(shiftTypeId) ?? 0
+      return {
+        shiftTypeId,
+        name: type?.name || `班次${shiftTypeId}`,
+        color: type?.color || '#969799',
+        maxCount,
+        actualCount,
+        isValid: actualCount <= maxCount,
+      }
+    }
+    const at = Number(rule.attendanceType)
+    const actualCount = actualAttendanceCountMap.get(at) ?? 0
     return {
-      shiftTypeId,
-      name: type?.name || `班次${shiftTypeId}`,
-      color: type?.color || '#969799',
+      attendanceType: at,
+      name: at === 1 ? '工作' : '休息',
+      color: at === 1 ? '#1989fa' : '#ff976a',
       maxCount,
       actualCount,
       isValid: actualCount <= maxCount,

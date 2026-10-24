@@ -51,6 +51,7 @@ export class SchedulesService {
             name: shiftType.name,
             code: shiftType.code,
             color: shiftType.color,
+            attendanceType: shiftType.attendance_type,
           }
         : null,
     };
@@ -62,7 +63,7 @@ export class SchedulesService {
 
     const { data, error } = await this.cloudbase
       .from('shift_types')
-      .select('id,name,code,color,time_range')
+      .select('id,name,code,color,time_range,attendance_type')
       .in('id', uniqueIds);
     if (error) throw error;
 
@@ -350,16 +351,36 @@ export class SchedulesService {
   ) {
     const { data: ruleRows, error: ruleError } = await this.cloudbase
       .from('schedule_rules')
-      .select('rule_type,shift_type_id,max_count')
+      .select('rule_type,shift_type_id,attendance_type,max_count')
       .eq('month_key', monthKey);
     if (ruleError) throw ruleError;
     const rules = (ruleRows as any[]) ?? [];
     if (rules.length === 0) return;
 
+    // 加载所有班次，建立 id -> 考勤类型 映射
+    const { data: shiftTypeRows, error: stError } = await this.cloudbase
+      .from('shift_types')
+      .select('id,name,attendance_type');
+    if (stError) throw stError;
+    const shiftTypeMap = new Map<number, { name: string; attendanceType: number }>();
+    for (const st of (shiftTypeRows as any[]) ?? []) {
+      shiftTypeMap.set(Number(st.id), {
+        name: st.name,
+        attendanceType: Number(st.attendance_type),
+      });
+    }
+    const attendanceOf = (stId: number | null) => {
+      if (!stId) return null;
+      return shiftTypeMap.get(Number(stId))?.attendanceType ?? null;
+    };
+    const nameOf = (stId: number) => shiftTypeMap.get(Number(stId))?.name ?? String(stId);
+    const attendanceName = (type: number) => (type === 1 ? '工作' : '休息');
+
     const monthlyRules = rules.filter((r) => Number(r.rule_type) === 1);
     const dailyRules = rules.filter((r) => Number(r.rule_type) === 2);
+    const minDailyRules = rules.filter((r) => Number(r.rule_type) === 3);
 
-    // 规则1：每人每月每班次数量上限
+    // 规则1：每人每月数量上限（按班次 或 按考勤）
     if (monthlyRules.length > 0) {
       const { data: rows, error } = await this.cloudbase
         .from('schedules')
@@ -368,7 +389,6 @@ export class SchedulesService {
         .eq('month_key', monthKey);
       if (error) throw error;
 
-      // 先按日期合并：已有的排班按日期建立映射，本次提交的项覆盖同一天的旧值，避免重复计数
       const byDate = new Map<string, number | null>();
       for (const r of (rows as any[]) ?? []) {
         const d = new Date(r.work_date).toISOString().split('T')[0];
@@ -378,60 +398,87 @@ export class SchedulesService {
         byDate.set(item.workDate, item.shiftTypeId ? Number(item.shiftTypeId) : null);
       }
 
-      const countMap = new Map<number, number>();
+      const countByShiftType = new Map<number, number>();
+      const countByAttendance = new Map<number, number>();
       for (const stId of byDate.values()) {
         if (stId) {
-          countMap.set(stId, (countMap.get(stId) ?? 0) + 1);
+          countByShiftType.set(stId, (countByShiftType.get(stId) ?? 0) + 1);
+          const at = attendanceOf(stId);
+          if (at !== null) {
+            countByAttendance.set(at, (countByAttendance.get(at) ?? 0) + 1);
+          }
         }
       }
+
       for (const rule of monthlyRules) {
-        const stId = Number(rule.shift_type_id);
         const maxCount = Number(rule.max_count);
-        const current = countMap.get(stId) ?? 0;
-        if (current > maxCount) {
-          const name = await this.getShiftTypeName(stId);
-          throw new BadRequestException(
-            `【${name}】每人每月最多排 ${maxCount} 天，当前已排 ${current} 天`,
-          );
+        if (rule.shift_type_id) {
+          const stId = Number(rule.shift_type_id);
+          const current = countByShiftType.get(stId) ?? 0;
+          if (current > maxCount) {
+            throw new BadRequestException(
+              `【${nameOf(stId)}】每人每月最多排 ${maxCount} 天，当前已排 ${current} 天`,
+            );
+          }
+        } else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+          const at = Number(rule.attendance_type);
+          const current = countByAttendance.get(at) ?? 0;
+          if (current > maxCount) {
+            throw new BadRequestException(
+              `【${attendanceName(at)}】每人每月最多排 ${maxCount} 天，当前已排 ${current} 天`,
+            );
+          }
         }
       }
     }
 
-    // 规则2：每天每班次人数上限
+    // 规则2：每天人数上限（按班次 或 按考勤）
     if (dailyRules.length > 0) {
       for (const item of items) {
-        if (!item.shiftTypeId) continue;
-        const stId = Number(item.shiftTypeId);
-        const rule = dailyRules.find((r) => Number(r.shift_type_id) === stId);
-        if (!rule) continue;
-        const maxCount = Number(rule.max_count);
-
+        const targetDate = new Date(item.workDate).toISOString().split('T')[0];
         const { data: rows, error } = await this.cloudbase
           .from('schedules')
-          .select('user_id,work_date')
-          .eq('shift_type_id', stId);
+          .select('user_id,work_date,shift_type_id')
+          .eq('work_date', targetDate);
         if (error) throw error;
 
-        const targetDate = new Date(item.workDate).toISOString().split('T')[0];
-        const others = ((rows as any[]) ?? []).filter((r) => {
-          const d = new Date(r.work_date).toISOString().split('T')[0];
-          return d === targetDate && Number(r.user_id) !== uid;
-        }).length;
-        if (others >= maxCount) {
-          const name = await this.getShiftTypeName(stId);
-          throw new BadRequestException(
-            `${item.workDate} 当天【${name}】最多 ${maxCount} 人，当前已选满`,
-          );
+        for (const rule of dailyRules) {
+          const maxCount = Number(rule.max_count);
+          if (rule.shift_type_id) {
+            const stId = Number(rule.shift_type_id);
+            if (Number(item.shiftTypeId) !== stId) continue;
+            const others = ((rows as any[]) ?? []).filter((r) => {
+              const d = new Date(r.work_date).toISOString().split('T')[0];
+              return d === targetDate && Number(r.shift_type_id) === stId && Number(r.user_id) !== uid;
+            }).length;
+            if (others >= maxCount) {
+              throw new BadRequestException(
+                `${item.workDate} 当天【${nameOf(stId)}】最多 ${maxCount} 人，当前已选满`,
+              );
+            }
+          } else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+            const at = Number(rule.attendance_type);
+            if (attendanceOf(item.shiftTypeId ?? null) !== at) continue;
+            const others = ((rows as any[]) ?? []).filter((r) => {
+              const d = new Date(r.work_date).toISOString().split('T')[0];
+              return (
+                d === targetDate &&
+                Number(r.user_id) !== uid &&
+                attendanceOf(r.shift_type_id ? Number(r.shift_type_id) : null) === at
+              );
+            }).length;
+            if (others >= maxCount) {
+              throw new BadRequestException(
+                `${item.workDate} 当天【${attendanceName(at)}】最多 ${maxCount} 人，当前已选满`,
+              );
+            }
+          }
         }
       }
     }
 
-    // 规则3：每天每班次人数下限（如每天【A班】>=1 人）
-    // 用户未选择该班次时，若其他人已选人数 + 仍未排班人数 < 下限，
-    // 说明只剩自己能满足要求，必须选择该班次。
-    const minDailyRules = rules.filter((r) => Number(r.rule_type) === 3);
+    // 规则3：每天人数下限（按班次 或 按考勤）
     if (minDailyRules.length > 0) {
-      // 启用且非管理员的用户总数（参与排班的人员池）
       const { data: userRows, error: userError } = await this.cloudbase
         .from('users')
         .select('id')
@@ -440,7 +487,6 @@ export class SchedulesService {
       if (userError) throw userError;
       const totalUsers = ((userRows as any[]) ?? []).length;
 
-      // 本月所有排班（含空班次），按日期在 JS 中过滤
       const { data: monthRows, error: monthError } = await this.cloudbase
         .from('schedules')
         .select('user_id,shift_type_id,work_date')
@@ -451,33 +497,53 @@ export class SchedulesService {
       for (const item of items) {
         const targetDate = new Date(item.workDate).toISOString().split('T')[0];
         const chosenId = item.shiftTypeId ? Number(item.shiftTypeId) : null;
+        const chosenAt = attendanceOf(chosenId);
         const dayRows = allRows.filter(
           (r) => new Date(r.work_date).toISOString().split('T')[0] === targetDate,
         );
 
         for (const rule of minDailyRules) {
-          const stId = Number(rule.shift_type_id);
           const minCount = Number(rule.max_count);
-          if (chosenId === stId) continue; // 自己已选该班次，天然满足
+          if (rule.shift_type_id) {
+            const stId = Number(rule.shift_type_id);
+            if (chosenId === stId) continue;
 
-          // 其他人中已选该班次的人数
-          const selectedByOthers = dayRows.filter(
-            (r) => r.shift_type_id && Number(r.shift_type_id) === stId && Number(r.user_id) !== uid,
-          ).length;
-          // 该日期仍未排班（含空班次）的其他人数量
-          const emptyOthers = dayRows.filter(
-            (r) => !r.shift_type_id && Number(r.user_id) !== uid,
-          ).length;
-          // 完全没有该日期记录的其他人数量
-          const scheduledUserIds = new Set(dayRows.map((r) => Number(r.user_id)));
-          const noRecordOthers = totalUsers - scheduledUserIds.size - (scheduledUserIds.has(uid) ? 0 : 1);
+            const selectedByOthers = dayRows.filter(
+              (r) => r.shift_type_id && Number(r.shift_type_id) === stId && Number(r.user_id) !== uid,
+            ).length;
+            const emptyOthers = dayRows.filter(
+              (r) => !r.shift_type_id && Number(r.user_id) !== uid,
+            ).length;
+            const scheduledUserIds = new Set(dayRows.map((r) => Number(r.user_id)));
+            const noRecordOthers = totalUsers - scheduledUserIds.size - (scheduledUserIds.has(uid) ? 0 : 1);
 
-          const remaining = selectedByOthers + emptyOthers + noRecordOthers;
-          if (remaining < minCount) {
-            const name = await this.getShiftTypeName(stId);
-            throw new BadRequestException(
-              `${item.workDate} 当天【${name}】至少需要 ${minCount} 人值班，其他人员已无法满足，您必须选择【${name}】`,
-            );
+            const remaining = selectedByOthers + emptyOthers + noRecordOthers;
+            if (remaining < minCount) {
+              throw new BadRequestException(
+                `${item.workDate} 当天【${nameOf(stId)}】至少需要 ${minCount} 人值班，其他人员已无法满足，您必须选择【${nameOf(stId)}】`,
+              );
+            }
+          } else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+            const at = Number(rule.attendance_type);
+            if (chosenAt === at) continue;
+
+            const selectedByOthers = dayRows.filter(
+              (r) =>
+                attendanceOf(r.shift_type_id ? Number(r.shift_type_id) : null) === at &&
+                Number(r.user_id) !== uid,
+            ).length;
+            const emptyOthers = dayRows.filter(
+              (r) => !r.shift_type_id && Number(r.user_id) !== uid,
+            ).length;
+            const scheduledUserIds = new Set(dayRows.map((r) => Number(r.user_id)));
+            const noRecordOthers = totalUsers - scheduledUserIds.size - (scheduledUserIds.has(uid) ? 0 : 1);
+
+            const remaining = selectedByOthers + emptyOthers + noRecordOthers;
+            if (remaining < minCount) {
+              throw new BadRequestException(
+                `${item.workDate} 当天【${attendanceName(at)}】至少需要 ${minCount} 人值班，其他人员已无法满足，您必须选择【${attendanceName(at)}】`,
+              );
+            }
           }
         }
       }

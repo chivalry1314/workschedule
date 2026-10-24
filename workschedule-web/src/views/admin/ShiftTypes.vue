@@ -13,7 +13,12 @@
         @click="edit(type)"
       >
         <template #value>
-          <van-tag :color="type.color">{{ type.status === 1 ? '启用' : '禁用' }}</van-tag>
+          <div class="type-tags">
+            <van-tag :color="type.color">{{ type.status === 1 ? '启用' : '禁用' }}</van-tag>
+            <van-tag :type="type.attendanceType === 1 ? 'primary' : 'warning'">
+              {{ type.attendanceType === 1 ? '工作' : '休息' }}
+            </van-tag>
+          </div>
         </template>
       </van-cell>
     </van-cell-group>
@@ -44,6 +49,13 @@
 
         <van-field v-model="form.timeRange" label="时间段" placeholder="09:00-18:00" />
         <van-field v-model="form.remark" label="备注" placeholder="可选" />
+        <div class="attendance-field">
+          <label class="attendance-label">考勤类型</label>
+          <van-radio-group v-model="form.attendanceType" direction="horizontal">
+            <van-radio :name="1">工作</van-radio>
+            <van-radio :name="0">休息</van-radio>
+          </van-radio-group>
+        </div>
         <div class="form-actions">
           <van-button round block type="primary" @click="onSubmit">保存</van-button>
           <van-button v-if="editing" round block type="danger" @click="remove">删除</van-button>
@@ -91,6 +103,7 @@ const form = reactive({
   color: '#3B82F6',
   timeRange: '',
   remark: '',
+  attendanceType: 1,
 })
 
 const loadData = async () => {
@@ -105,6 +118,7 @@ const create = () => {
   form.color = '#3B82F6'
   form.timeRange = ''
   form.remark = ''
+  form.attendanceType = 1
   showCreate.value = true
 }
 
@@ -116,6 +130,7 @@ const edit = (type: any) => {
   form.color = type.color
   form.timeRange = type.timeRange || ''
   form.remark = type.remark || ''
+  form.attendanceType = type.attendanceType ?? 1
   showCreate.value = true
 }
 
@@ -126,6 +141,7 @@ const onSubmit = async () => {
     color: form.color,
     timeRange: form.timeRange,
     remark: form.remark,
+    attendanceType: form.attendanceType,
   }
   if (editing.value) {
     await withLoading(() => updateShiftType(form.id, data))
@@ -230,4 +246,23 @@ onMounted(loadData)
 
 .color-swatch.active {
   border-color: #333;
+}
+
+.attendance-field {
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+}
+
+.attendance-label {
+  display: block;
+  font-size: 14px;
+  color: #323233;
+  margin-bottom: 8px;
+}
+
+.type-tags {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
 }

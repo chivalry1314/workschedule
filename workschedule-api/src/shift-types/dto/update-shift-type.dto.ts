@@ -1,4 +1,4 @@
-import { IsString, IsOptional, Allow } from 'class-validator';
+import { IsString, IsOptional, Allow, IsInt } from 'class-validator';
 
 export class UpdateShiftTypeDto {
   @IsString()
@@ -19,4 +19,8 @@ export class UpdateShiftTypeDto {
   @IsString()
   @IsOptional()
   remark?: string;
+
+  @IsInt()
+  @IsOptional()
+  attendanceType?: number;
 }
