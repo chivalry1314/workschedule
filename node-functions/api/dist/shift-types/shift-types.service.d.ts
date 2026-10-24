@@ -13,6 +13,7 @@ export declare class ShiftTypesService {
         timeRange: any;
         remark: any;
         status: any;
+        attendanceType: any;
         createdAt: any;
         updatedAt: any;
     }>;
@@ -24,6 +25,7 @@ export declare class ShiftTypesService {
         timeRange: any;
         remark: any;
         status: any;
+        attendanceType: any;
         createdAt: any;
         updatedAt: any;
     }[]>;
@@ -35,6 +37,7 @@ export declare class ShiftTypesService {
         timeRange: any;
         remark: any;
         status: any;
+        attendanceType: any;
         createdAt: any;
         updatedAt: any;
     }>;
@@ -46,6 +49,7 @@ export declare class ShiftTypesService {
         timeRange: any;
         remark: any;
         status: any;
+        attendanceType: any;
         createdAt: any;
         updatedAt: any;
     }>;
@@ -60,6 +64,7 @@ export declare class ShiftTypesService {
         timeRange: any;
         remark: any;
         status: any;
+        attendanceType: any;
         createdAt: any;
         updatedAt: any;
     }>;

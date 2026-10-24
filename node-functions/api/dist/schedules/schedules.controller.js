@@ -16,6 +16,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { AdminGuard } from '../auth/guards/admin.guard.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { SaveScheduleDto } from './dto/save-schedule.dto.js';
+import { InitializeScheduleDto } from './dto/initialize-schedule.dto.js';
+import { ClearAllSchedulesDto } from './dto/clear-all-schedules.dto.js';
 let SchedulesController = class SchedulesController {
     schedulesService;
     constructor(schedulesService) {
@@ -41,6 +43,15 @@ let SchedulesController = class SchedulesController {
     }
     adminSaveUserSchedules(userId, dto) {
         return this.schedulesService.adminSaveUserSchedules(BigInt(userId), dto);
+    }
+    clearUserSchedules(userId, year, month) {
+        return this.schedulesService.clearUserSchedules(BigInt(userId), +year, +month);
+    }
+    initializeSchedules(dto) {
+        return this.schedulesService.initializeSchedules(dto);
+    }
+    clearAllSchedules(dto) {
+        return this.schedulesService.clearAllSchedules(dto.year, dto.month);
     }
     lockMonth(id, year, month) {
         return this.schedulesService.lockMonth(BigInt(id), +year, +month);
@@ -106,6 +117,32 @@ __decorate([
     __metadata("design:paramtypes", [String, SaveScheduleDto]),
     __metadata("design:returntype", void 0)
 ], SchedulesController.prototype, "adminSaveUserSchedules", null);
+__decorate([
+    Post('users/:userId/clear'),
+    UseGuards(AdminGuard),
+    __param(0, Param('userId')),
+    __param(1, Query('year')),
+    __param(2, Query('month')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], SchedulesController.prototype, "clearUserSchedules", null);
+__decorate([
+    Post('initialize'),
+    UseGuards(AdminGuard),
+    __param(0, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [InitializeScheduleDto]),
+    __metadata("design:returntype", void 0)
+], SchedulesController.prototype, "initializeSchedules", null);
+__decorate([
+    Post('clear-all'),
+    UseGuards(AdminGuard),
+    __param(0, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [ClearAllSchedulesDto]),
+    __metadata("design:returntype", void 0)
+], SchedulesController.prototype, "clearAllSchedules", null);
 __decorate([
     Post(':id/lock'),
     UseGuards(AdminGuard),

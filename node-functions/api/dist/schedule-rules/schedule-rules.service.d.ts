@@ -1,7 +1,8 @@
 import { CloudBaseService } from '../cloudbase/cloudbase.service.js';
 export interface ScheduleRuleInput {
     ruleType: number;
-    shiftTypeId: number;
+    shiftTypeId?: number;
+    attendanceType?: number;
     maxCount: number;
 }
 export declare class ScheduleRulesService {
@@ -12,7 +13,8 @@ export declare class ScheduleRulesService {
         id: number;
         monthKey: any;
         ruleType: number;
-        shiftTypeId: number;
+        shiftTypeId: number | null;
+        attendanceType: number | null;
         maxCount: number;
         createdAt: any;
         updatedAt: any;
@@ -21,7 +23,8 @@ export declare class ScheduleRulesService {
         id: number;
         monthKey: any;
         ruleType: number;
-        shiftTypeId: number;
+        shiftTypeId: number | null;
+        attendanceType: number | null;
         maxCount: number;
         createdAt: any;
         updatedAt: any;

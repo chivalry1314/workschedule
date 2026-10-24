@@ -15,6 +15,7 @@ export class CreateShiftTypeDto {
     timeRange;
     remark;
     status;
+    attendanceType;
 }
 __decorate([
     IsString(),
@@ -46,4 +47,9 @@ __decorate([
     IsOptional(),
     __metadata("design:type", Number)
 ], CreateShiftTypeDto.prototype, "status", void 0);
+__decorate([
+    IsInt(),
+    IsOptional(),
+    __metadata("design:type", Number)
+], CreateShiftTypeDto.prototype, "attendanceType", void 0);
 //# sourceMappingURL=create-shift-type.dto.js.map

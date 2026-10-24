@@ -10,11 +10,9 @@
     }
   ],
   "cloudFunctions": {
-    "nodejs": {
-      "externalNodeModules": [
-        "@nestjs/microservices",
-        "@nestjs/websockets"
-      ]
-    }
+    "externalNodeModules": [
+      "@nestjs/microservices",
+      "@nestjs/websockets"
+    ]
   }
 }

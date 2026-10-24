@@ -1,5 +1,7 @@
 import { SchedulesService } from './schedules.service.js';
 import { SaveScheduleDto } from './dto/save-schedule.dto.js';
+import { InitializeScheduleDto } from './dto/initialize-schedule.dto.js';
+import { ClearAllSchedulesDto } from './dto/clear-all-schedules.dto.js';
 export declare class SchedulesController {
     private schedulesService;
     constructor(schedulesService: SchedulesService);
@@ -21,6 +23,7 @@ export declare class SchedulesController {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -48,6 +51,7 @@ export declare class SchedulesController {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -75,6 +79,7 @@ export declare class SchedulesController {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -114,6 +119,7 @@ export declare class SchedulesController {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -141,6 +147,7 @@ export declare class SchedulesController {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -149,6 +156,17 @@ export declare class SchedulesController {
             startAt: any;
             endAt: any;
         } | null;
+    }>;
+    clearUserSchedules(userId: string, year: string, month: string): Promise<{
+        message: string;
+    }>;
+    initializeSchedules(dto: InitializeScheduleDto): Promise<{
+        initializedCount: number;
+        message: string;
+    }>;
+    clearAllSchedules(dto: ClearAllSchedulesDto): Promise<{
+        clearedCount: number;
+        message: string;
     }>;
     lockMonth(id: string, year: string, month: string): Promise<{
         message: string;

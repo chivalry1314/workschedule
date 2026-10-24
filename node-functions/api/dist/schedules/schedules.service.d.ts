@@ -1,6 +1,7 @@
 import { CloudBaseService } from '../cloudbase/cloudbase.service.js';
 import { ScheduleWindowsService } from '../schedule-windows/schedule-windows.service.js';
 import { SaveScheduleDto } from './dto/save-schedule.dto.js';
+import { InitializeScheduleDto } from './dto/initialize-schedule.dto.js';
 export declare class SchedulesService {
     private cloudbase;
     private scheduleWindows;
@@ -27,6 +28,7 @@ export declare class SchedulesService {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -54,6 +56,7 @@ export declare class SchedulesService {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -81,6 +84,7 @@ export declare class SchedulesService {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -89,6 +93,14 @@ export declare class SchedulesService {
             startAt: any;
             endAt: any;
         } | null;
+    }>;
+    initializeSchedules(dto: InitializeScheduleDto): Promise<{
+        initializedCount: number;
+        message: string;
+    }>;
+    clearAllSchedules(year: number, month: number): Promise<{
+        clearedCount: number;
+        message: string;
     }>;
     private applyScheduleItems;
     private validateScheduleRules;
@@ -111,6 +123,7 @@ export declare class SchedulesService {
                 name: any;
                 code: any;
                 color: any;
+                attendanceType: any;
             } | null;
         }[];
         editable: boolean;
@@ -142,6 +155,9 @@ export declare class SchedulesService {
         message: string;
     }>;
     rejectMonth(userId: bigint, year: number, month: number): Promise<{
+        message: string;
+    }>;
+    clearUserSchedules(userId: bigint, year: number, month: number): Promise<{
         message: string;
     }>;
 }

@@ -6,7 +6,8 @@ export declare class ScheduleRulesController {
         id: number;
         monthKey: any;
         ruleType: number;
-        shiftTypeId: number;
+        shiftTypeId: number | null;
+        attendanceType: number | null;
         maxCount: number;
         createdAt: any;
         updatedAt: any;
@@ -15,14 +16,16 @@ export declare class ScheduleRulesController {
         monthKey: string;
         rules: {
             ruleType: number;
-            shiftTypeId: number;
+            shiftTypeId?: number;
+            attendanceType?: number;
             maxCount: number;
         }[];
     }): Promise<{
         id: number;
         monthKey: any;
         ruleType: number;
-        shiftTypeId: number;
+        shiftTypeId: number | null;
+        attendanceType: number | null;
         maxCount: number;
         createdAt: any;
         updatedAt: any;

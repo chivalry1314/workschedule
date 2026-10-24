@@ -5,4 +5,5 @@ export declare class CreateShiftTypeDto {
     timeRange?: string;
     remark?: string;
     status?: number;
+    attendanceType?: number;
 }

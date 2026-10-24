@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Controller, Get, Post, Body, Param, UseGuards, } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, } from '@nestjs/common';
 import { SwapsService } from './swaps.service.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { AdminGuard } from '../auth/guards/admin.guard.js';
@@ -41,6 +41,12 @@ let SwapsController = class SwapsController {
     }
     adminReject(adminId, id) {
         return this.swapsService.adminApprove(BigInt(id), adminId, false);
+    }
+    findAllNonAdmin() {
+        return this.swapsService.findAllNonAdmin();
+    }
+    remove(id) {
+        return this.swapsService.remove(BigInt(id));
     }
 };
 __decorate([
@@ -100,6 +106,21 @@ __decorate([
     __metadata("design:paramtypes", [BigInt, String]),
     __metadata("design:returntype", void 0)
 ], SwapsController.prototype, "adminReject", null);
+__decorate([
+    Get('all'),
+    UseGuards(AdminGuard),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], SwapsController.prototype, "findAllNonAdmin", null);
+__decorate([
+    Delete(':id'),
+    UseGuards(AdminGuard),
+    __param(0, Param('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], SwapsController.prototype, "remove", null);
 SwapsController = __decorate([
     Controller('swaps'),
     UseGuards(JwtAuthGuard),

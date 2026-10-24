@@ -4,4 +4,5 @@ export declare class UpdateShiftTypeDto {
     color?: string;
     timeRange?: string;
     remark?: string;
+    attendanceType?: number;
 }

@@ -34,8 +34,12 @@ let SwapsService = class SwapsService {
             id: Number(sw.id),
             applicantId: Number(sw.applicant_id),
             applicantScheduleId: Number(sw.applicant_schedule_id),
+            applicantShiftTypeId: sw.applicant_shift_type_id
+                ? Number(sw.applicant_shift_type_id)
+                : null,
             targetUserId: sw.target_user_id ? Number(sw.target_user_id) : null,
             targetScheduleId: sw.target_schedule_id ? Number(sw.target_schedule_id) : null,
+            targetShiftTypeId: sw.target_shift_type_id ? Number(sw.target_shift_type_id) : null,
             swapType: Number(sw.swap_type),
             reason: sw.reason,
             status: Number(sw.status),
@@ -77,9 +81,19 @@ let SwapsService = class SwapsService {
             .in('id', scheduleIds);
         if (scheduleError)
             throw scheduleError;
-        const shiftTypeIds = scheduleRows
+        const originalShiftTypeIds = swaps
+            .flatMap((s) => [
+            s.applicant_shift_type_id,
+            s.target_shift_type_id,
+        ])
+            .filter(Boolean)
+            .map((id) => Number(id));
+        const currentShiftTypeIds = scheduleRows
             .map((s) => Number(s.shift_type_id))
             .filter(Boolean);
+        const shiftTypeIds = [
+            ...new Set([...originalShiftTypeIds, ...currentShiftTypeIds]),
+        ];
         const shiftTypeMap = await this.loadShiftTypes(shiftTypeIds);
         const scheduleMap = new Map(scheduleRows.map((s) => [
             Number(s.id),
@@ -91,6 +105,15 @@ let SwapsService = class SwapsService {
                     : null,
             },
         ]));
+        const scheduleWithOriginalShiftType = (scheduleId, originalShiftTypeId) => {
+            const schedule = scheduleMap.get(scheduleId);
+            if (!schedule)
+                return null;
+            const shiftType = originalShiftTypeId
+                ? shiftTypeMap.get(originalShiftTypeId) ?? null
+                : schedule.shiftType;
+            return { ...schedule, shiftType };
+        };
         return swaps.map((sw) => {
             const base = this.mapRawSwap(sw);
             return {
@@ -107,9 +130,9 @@ let SwapsService = class SwapsService {
                         return { id: uid, realName: u?.real_name };
                     })()
                     : null,
-                applicantSchedule: scheduleMap.get(Number(sw.applicant_schedule_id)),
+                applicantSchedule: scheduleWithOriginalShiftType(Number(sw.applicant_schedule_id), base.applicantShiftTypeId),
                 targetSchedule: sw.target_schedule_id
-                    ? scheduleMap.get(Number(sw.target_schedule_id))
+                    ? scheduleWithOriginalShiftType(Number(sw.target_schedule_id), base.targetShiftTypeId)
                     : null,
             };
         });
@@ -120,7 +143,7 @@ let SwapsService = class SwapsService {
             return new Map();
         const { data, error } = await this.cloudbase
             .from('shift_types')
-            .select('id,name,color')
+            .select('id,name,color,attendance_type')
             .in('id', uniqueIds);
         if (error)
             throw error;
@@ -197,8 +220,14 @@ let SwapsService = class SwapsService {
         const { error } = await this.cloudbase.from('shift_swaps').insert({
             applicant_id: Number(applicantId),
             applicant_schedule_id: Number(dto.applicantScheduleId),
+            applicant_shift_type_id: applicantSchedule.shift_type_id
+                ? Number(applicantSchedule.shift_type_id)
+                : null,
             target_user_id: dto.targetUserId ? Number(dto.targetUserId) : null,
             target_schedule_id: dto.targetScheduleId ? Number(dto.targetScheduleId) : null,
+            target_shift_type_id: targetSchedule?.shift_type_id
+                ? Number(targetSchedule.shift_type_id)
+                : null,
             swap_type: Number(dto.swapType),
             reason: dto.reason && dto.reason.trim().length > 0 ? dto.reason.trim() : null,
             status: applicantMonthLocked || targetMonthLocked ? 4 : 0,
@@ -218,7 +247,6 @@ let SwapsService = class SwapsService {
                 .from('shift_swaps')
                 .select('*')
                 .eq('target_user_id', Number(userId))
-                .in('status', [0, 4])
                 .order('created_at', { ascending: false }),
         ]);
         if (aErr)
@@ -228,6 +256,48 @@ let SwapsService = class SwapsService {
         const applied = await this.enrichSwaps(appliedRows ?? []);
         const received = await this.enrichSwaps(receivedRows ?? []);
         return { applied, received };
+    }
+    async findAllNonAdmin() {
+        const { data: userRows, error: userError } = await this.cloudbase
+            .from('users')
+            .select('id')
+            .eq('is_admin', false);
+        if (userError)
+            throw userError;
+        const userIds = (userRows ?? [])
+            .map((u) => Number(u.id))
+            .filter(Boolean);
+        if (userIds.length === 0)
+            return { all: [] };
+        const ids = userIds.join(',');
+        const { data: swapRows, error } = await this.cloudbase
+            .from('shift_swaps')
+            .select('*')
+            .or(`applicant_id.in.(${ids}),target_user_id.in.(${ids})`)
+            .order('created_at', { ascending: false });
+        if (error)
+            throw error;
+        const all = await this.enrichSwaps(swapRows ?? []);
+        return { all };
+    }
+    async remove(id) {
+        const { data, error } = await this.cloudbase
+            .from('shift_swaps')
+            .select('id')
+            .eq('id', Number(id))
+            .limit(1);
+        if (error)
+            throw error;
+        if (!data || data.length === 0) {
+            throw new NotFoundException('换班申请不存在');
+        }
+        const { error: deleteError } = await this.cloudbase
+            .from('shift_swaps')
+            .delete()
+            .eq('id', Number(id));
+        if (deleteError)
+            throw deleteError;
+        return { message: '删除成功' };
     }
     async approve(id, currentUserId) {
         const swap = await this.fetchSwapById(id);
@@ -337,7 +407,7 @@ let SwapsService = class SwapsService {
         const months = [...new Set([appMonth, tgtMonth])];
         const { data: ruleRows, error: ruleError } = await this.cloudbase
             .from('schedule_rules')
-            .select('month_key,rule_type,shift_type_id,max_count')
+            .select('month_key,rule_type,shift_type_id,attendance_type,max_count')
             .in('month_key', months);
         if (ruleError)
             throw ruleError;
@@ -351,6 +421,29 @@ let SwapsService = class SwapsService {
         if (schedError)
             throw schedError;
         const rows = schedRows ?? [];
+        const { data: userRows, error: userError } = await this.cloudbase
+            .from('users')
+            .select('id')
+            .eq('is_admin', false);
+        if (userError)
+            throw userError;
+        const nonAdminUserIds = new Set((userRows ?? []).map((u) => Number(u.id)).filter(Boolean));
+        const scheduledUsersByDate = new Map();
+        for (const r of rows) {
+            const date = dayOf(r.work_date);
+            if (!scheduledUsersByDate.has(date)) {
+                scheduledUsersByDate.set(date, new Set());
+            }
+            scheduledUsersByDate.get(date).add(Number(r.user_id));
+        }
+        const hasUnscheduledUsers = (date) => {
+            const scheduled = scheduledUsersByDate.get(date) ?? new Set();
+            for (const uid of nonAdminUserIds) {
+                if (!scheduled.has(uid))
+                    return true;
+            }
+            return false;
+        };
         const dayMapAfterSwap = (date) => {
             const m = new Map();
             for (const r of rows) {
@@ -362,29 +455,64 @@ let SwapsService = class SwapsService {
             m.set(tgtUserId, tgtDate === date ? tgtNewSt : m.get(tgtUserId) ?? null);
             return m;
         };
-        const shiftTypeIds = [
-            ...new Set(rules.map((r) => Number(r.shift_type_id)).filter(Boolean)),
-        ];
-        const nameMap = await this.loadShiftTypes(shiftTypeIds);
-        const nameOf = (id) => nameMap.get(id)?.name ?? String(id);
+        const { data: shiftTypeRows, error: stError } = await this.cloudbase
+            .from('shift_types')
+            .select('id,name,attendance_type');
+        if (stError)
+            throw stError;
+        const shiftTypeMap = new Map();
+        for (const st of shiftTypeRows ?? []) {
+            shiftTypeMap.set(Number(st.id), {
+                name: st.name,
+                attendanceType: Number(st.attendance_type),
+            });
+        }
+        const attendanceOf = (stId) => {
+            if (!stId)
+                return null;
+            return shiftTypeMap.get(Number(stId))?.attendanceType ?? null;
+        };
+        const nameOf = (id) => shiftTypeMap.get(id)?.name ?? String(id);
+        const attendanceName = (type) => (type === 1 ? '工作' : '休息');
         for (const date of [appDate, tgtDate]) {
             const dateMonth = date.slice(0, 7);
             const m = dayMapAfterSwap(date);
+            const stValues = [...m.values()];
             for (const rule of rules) {
                 if (String(rule.month_key) !== dateMonth)
                     continue;
-                const stId = Number(rule.shift_type_id);
-                const count = [...m.values()].filter((v) => v === stId).length;
-                if (Number(rule.rule_type) === 2 && count > Number(rule.max_count)) {
-                    throw new BadRequestException(`${date} 当天【${nameOf(stId)}】最多 ${rule.max_count} 人，换班后将超出限制`);
+                const maxCount = Number(rule.max_count);
+                if (rule.shift_type_id) {
+                    const stId = Number(rule.shift_type_id);
+                    const count = stValues.filter((v) => v === stId).length;
+                    if (Number(rule.rule_type) === 2 && count > maxCount) {
+                        throw new BadRequestException(`${date} 当天【${nameOf(stId)}】最多 ${maxCount} 人，换班后将超出限制`);
+                    }
+                    if (Number(rule.rule_type) === 3 && count < maxCount) {
+                        if (hasUnscheduledUsers(date)) {
+                            continue;
+                        }
+                        throw new BadRequestException(`${date} 当天【${nameOf(stId)}】至少需要 ${maxCount} 人值班，换班后将无法满足`);
+                    }
                 }
-                if (Number(rule.rule_type) === 3 && count < Number(rule.max_count)) {
-                    throw new BadRequestException(`${date} 当天【${nameOf(stId)}】至少需要 ${rule.max_count} 人值班，换班后将无法满足`);
+                else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+                    const at = Number(rule.attendance_type);
+                    const count = stValues.filter((v) => attendanceOf(v) === at).length;
+                    if (Number(rule.rule_type) === 2 && count > maxCount) {
+                        throw new BadRequestException(`${date} 当天【${attendanceName(at)}】最多 ${maxCount} 人，换班后将超出限制`);
+                    }
+                    if (Number(rule.rule_type) === 3 && count < maxCount) {
+                        if (hasUnscheduledUsers(date)) {
+                            continue;
+                        }
+                        throw new BadRequestException(`${date} 当天【${attendanceName(at)}】至少需要 ${maxCount} 人值班，换班后将无法满足`);
+                    }
                 }
             }
         }
         const monthCountAfterSwap = (userId, month, overrideDate, overrideSt) => {
             const counts = new Map();
+            const attendanceCounts = new Map();
             for (const r of rows) {
                 if (String(r.month_key) !== month || Number(r.user_id) !== userId)
                     continue;
@@ -394,24 +522,38 @@ let SwapsService = class SwapsService {
                     : r.shift_type_id
                         ? Number(r.shift_type_id)
                         : null;
-                if (st)
+                if (st) {
                     counts.set(st, (counts.get(st) ?? 0) + 1);
+                    const at = attendanceOf(st);
+                    if (at !== null) {
+                        attendanceCounts.set(at, (attendanceCounts.get(at) ?? 0) + 1);
+                    }
+                }
             }
-            return counts;
+            return { counts, attendanceCounts };
         };
         const parties = [
             { userId: appUserId, month: appMonth, date: appDate, st: appNewSt },
             { userId: tgtUserId, month: tgtMonth, date: tgtDate, st: tgtNewSt },
         ];
         for (const p of parties) {
-            const counts = monthCountAfterSwap(p.userId, p.month, p.date, p.st);
+            const { counts, attendanceCounts } = monthCountAfterSwap(p.userId, p.month, p.date, p.st);
             for (const rule of rules) {
                 if (Number(rule.rule_type) !== 1 || String(rule.month_key) !== p.month)
                     continue;
-                const stId = Number(rule.shift_type_id);
-                const count = counts.get(stId) ?? 0;
-                if (count > Number(rule.max_count)) {
-                    throw new BadRequestException(`【${nameOf(stId)}】每人每月最多排 ${rule.max_count} 天，换班后将超出限制`);
+                if (rule.shift_type_id) {
+                    const stId = Number(rule.shift_type_id);
+                    const count = counts.get(stId) ?? 0;
+                    if (count > Number(rule.max_count)) {
+                        throw new BadRequestException(`【${nameOf(stId)}】每人每月最多排 ${rule.max_count} 天，换班后将超出限制`);
+                    }
+                }
+                else if (rule.attendance_type !== null && rule.attendance_type !== undefined) {
+                    const at = Number(rule.attendance_type);
+                    const count = attendanceCounts.get(at) ?? 0;
+                    if (count > Number(rule.max_count)) {
+                        throw new BadRequestException(`【${attendanceName(at)}】每人每月最多排 ${rule.max_count} 天，换班后将超出限制`);
+                    }
                 }
             }
         }

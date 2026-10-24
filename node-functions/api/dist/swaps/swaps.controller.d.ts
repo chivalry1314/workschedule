@@ -14,20 +14,22 @@ export declare class SwapsController {
                 realName: any;
             } | null;
             applicantSchedule: {
+                shiftType: any;
                 id: number;
                 workDate: any;
-                shiftType: any;
-            } | undefined;
+            } | null;
             targetSchedule: {
+                shiftType: any;
                 id: number;
                 workDate: any;
-                shiftType: any;
-            } | null | undefined;
+            } | null;
             id: number;
             applicantId: number;
             applicantScheduleId: number;
+            applicantShiftTypeId: number | null;
             targetUserId: number | null;
             targetScheduleId: number | null;
+            targetShiftTypeId: number | null;
             swapType: number;
             reason: any;
             status: number;
@@ -46,20 +48,22 @@ export declare class SwapsController {
                 realName: any;
             } | null;
             applicantSchedule: {
+                shiftType: any;
                 id: number;
                 workDate: any;
-                shiftType: any;
-            } | undefined;
+            } | null;
             targetSchedule: {
+                shiftType: any;
                 id: number;
                 workDate: any;
-                shiftType: any;
-            } | null | undefined;
+            } | null;
             id: number;
             applicantId: number;
             applicantScheduleId: number;
+            applicantShiftTypeId: number | null;
             targetUserId: number | null;
             targetScheduleId: number | null;
+            targetShiftTypeId: number | null;
             swapType: number;
             reason: any;
             status: number;
@@ -85,6 +89,45 @@ export declare class SwapsController {
         message: string;
     }>;
     adminReject(adminId: bigint, id: string): Promise<{
+        message: string;
+    }>;
+    findAllNonAdmin(): Promise<{
+        all: {
+            applicant: {
+                id: number;
+                realName: any;
+            };
+            targetUser: {
+                id: number;
+                realName: any;
+            } | null;
+            applicantSchedule: {
+                shiftType: any;
+                id: number;
+                workDate: any;
+            } | null;
+            targetSchedule: {
+                shiftType: any;
+                id: number;
+                workDate: any;
+            } | null;
+            id: number;
+            applicantId: number;
+            applicantScheduleId: number;
+            applicantShiftTypeId: number | null;
+            targetUserId: number | null;
+            targetScheduleId: number | null;
+            targetShiftTypeId: number | null;
+            swapType: number;
+            reason: any;
+            status: number;
+            adminApproved: any;
+            createdAt: any;
+            updatedAt: any;
+            resolvedAt: any;
+        }[];
+    }>;
+    remove(id: string): Promise<{
         message: string;
     }>;
 }

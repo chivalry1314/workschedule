@@ -7,13 +7,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsString, IsOptional, Allow } from 'class-validator';
+import { IsString, IsOptional, Allow, IsInt } from 'class-validator';
 export class UpdateShiftTypeDto {
     name;
     code;
     color;
     timeRange;
     remark;
+    attendanceType;
 }
 __decorate([
     IsString(),
@@ -39,4 +40,9 @@ __decorate([
     IsOptional(),
     __metadata("design:type", String)
 ], UpdateShiftTypeDto.prototype, "remark", void 0);
+__decorate([
+    IsInt(),
+    IsOptional(),
+    __metadata("design:type", Number)
+], UpdateShiftTypeDto.prototype, "attendanceType", void 0);
 //# sourceMappingURL=update-shift-type.dto.js.map
