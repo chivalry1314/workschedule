@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "express": "^5.0.1",
     "@cloudbase/js-sdk": "^3.9.0",
     "ws": "^8.18.0"
   }
