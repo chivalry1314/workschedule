@@ -9,38 +9,31 @@ const rootDir = resolve(__dirname, '../..');
 const apiDir = resolve(rootDir, 'workschedule-api');
 const fnDir = resolve(rootDir, 'node-functions/api');
 
-// 这些模块不打包，保留为 node_modules 依赖：
-// - express：含动态 require 和模板文件，打包容易出问题
-// - @nestjs/microservices / @nestjs/websockets：NestJS 的可选依赖，按需加载
-// - @cloudbase/js-sdk：浏览器/Node 混合 SDK，含动态导入，外部化更安全
+// 以下模块不打包，保持外部安装：
+// - express：含动态 require 和模板文件
+// - @nestjs/microservices / @nestjs/websockets：@nestjs/core 会动态 import，但项目未使用
+// - @cloudbase/js-sdk / ws：cloudbase sdk 在 Node 环境下会动态 require('ws')，
+//   把它整体外部化可以避免打包后 eval 动态 require 找不到模块的问题
 const EXTERNAL_MODULES = [
   'express',
   '@nestjs/microservices',
   '@nestjs/websockets',
+  '@cloudbase/js-sdk',
+  'ws',
 ];
 
 await rm(fnDir, { recursive: true, force: true });
 await mkdir(fnDir, { recursive: true });
 
-// 将入口文件复制到 dist 目录下再打包，使相对路径 ./bootstrap.js 能正确解析
-const bundledEntry = resolve(apiDir, 'dist', '__edgeone_entry__.js');
-let originalEntry = await readFile(resolve(apiDir, 'edgeone/entry.js'), 'utf8');
-// 入口文件原位于 workschedule-api/edgeone/entry.js，导入 ./dist/bootstrap.js；
-// 复制到 dist/ 后需改为 ./bootstrap.js
-originalEntry = originalEntry.replace(
-  "from './dist/bootstrap.js'",
-  "from './bootstrap.js'",
-);
-await writeFile(bundledEntry, originalEntry);
-
-// 使用 esbuild 把后端打包成单个文件，显著减少冷启动时的文件 IO
+// 把业务代码（dist/bootstrap.js 及其所有依赖）打包成单文件，减少冷启动文件 IO
+const bundlePath = resolve(apiDir, 'dist', 'bootstrap.bundle.js');
 await build({
-  entryPoints: [bundledEntry],
+  entryPoints: [resolve(apiDir, 'dist', 'bootstrap.js')],
   bundle: true,
   platform: 'node',
   target: 'node22',
   format: 'esm',
-  outfile: resolve(fnDir, '[[default]].js'),
+  outfile: bundlePath,
   external: EXTERNAL_MODULES,
   keepNames: true,
   sourcemap: false,
@@ -50,10 +43,18 @@ await build({
   },
 });
 
-// 清理临时入口文件
-await rm(bundledEntry, { force: true });
+// 复制入口文件，并把对 ./dist/bootstrap.js 的引用改为打包后的 ./dist/bootstrap.bundle.js
+const entrySrc = await readFile(resolve(apiDir, 'edgeone/entry.js'), 'utf8');
+const entryOut = entrySrc.replace(
+  "from './dist/bootstrap.js'",
+  "from './dist/bootstrap.bundle.js'",
+);
+await writeFile(resolve(fnDir, '[[default]].js'), entryOut);
 
-// 读取 api package.json，生成仅含生产依赖 + 外部化模块的函数 package.json
+// 复制打包后的入口 bundle
+await cp(resolve(apiDir, 'dist'), resolve(fnDir, 'dist'), { recursive: true });
+
+// 生成仅含外部化生产依赖的函数 package.json
 const rootPkg = JSON.parse(
   await readFile(resolve(apiDir, 'package.json'), 'utf8'),
 );

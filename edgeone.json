@@ -11,7 +11,11 @@
   ],
   "cloudFunctions": {
     "externalNodeModules": [
-      "express"
+      "express",
+      "@nestjs/microservices",
+      "@nestjs/websockets",
+      "@cloudbase/js-sdk",
+      "ws"
     ]
   }
 }
