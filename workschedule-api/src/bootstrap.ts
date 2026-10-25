@@ -32,15 +32,17 @@ export async function createNestApp(existingApp?: Express, prefix = 'api/v1') {
   // 等待 CloudBase SDK 初始化完成
   await app.init();
 
-  // 插入默认管理员（需先在 CloudBase 控制台执行 schema.sql 建表）
+  // 插入默认管理员改为后台执行，不阻塞请求响应（首次冷启动时尤其重要）
   try {
     const usersService = app.get(UsersService);
-    await usersService.seedAdmin();
+    usersService.seedAdmin().catch((err: any) => {
+      console.error(
+        '[Bootstrap] 初始化默认管理员失败，请确认已在 CloudBase 控制台执行 scripts/schema.sql：',
+        err?.message || err,
+      );
+    });
   } catch (err: any) {
-    console.error(
-      '[Bootstrap] 初始化默认管理员失败，请确认已在 CloudBase 控制台执行 scripts/schema.sql：',
-      err?.message || err,
-    );
+    console.error('[Bootstrap] 获取 UsersService 失败：', err?.message || err);
   }
 
   console.log(`[Bootstrap] NestJS 应用初始化完成，prefix=${prefix}，耗时 ${Date.now() - t0}ms`);
