@@ -6,9 +6,9 @@
       <van-button size="small" icon="arrow" @click="changeMonth(1)" />
     </div>
 
-    <div v-if="isAdmin" class="action-bar">
+    <div class="action-bar">
       <van-button size="small" type="primary" icon="down" @click="exportExcel">导出 Excel</van-button>
-      <van-button size="small" type="warning" icon="replay" @click="openInitPicker">初始化</van-button>
+      <van-button v-if="isAdmin" size="small" type="warning" icon="replay" @click="openInitPicker">初始化</van-button>
     </div>
 
     <div class="table-wrapper">
@@ -115,7 +115,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
 import { showToast, showConfirmDialog } from 'vant'
-import * as XLSX from 'xlsx'
+
 import { getAllSchedules, saveUserSchedules, initializeSchedules, clearAllSchedules } from '@/api/schedule'
 import { getShiftTypes } from '@/api/shiftType'
 import { getDefaultScheduleMonth } from '@/api/settings'
@@ -305,23 +305,67 @@ const setShift = async (shiftTypeId: number | null) => {
   await loadData()
 }
 
+const hexToArgb = (hex: string): string => {
+  const normalized = hex.replace('#', '')
+  if (normalized.length === 3) {
+    const r = normalized[0] + normalized[0]
+    const g = normalized[1] + normalized[1]
+    const b = normalized[2] + normalized[2]
+    return `FF${r}${g}${b}`
+  }
+  if (normalized.length === 6) {
+    return `FF${normalized}`
+  }
+  return 'FFFFFFFF'
+}
+
 // 导出当前月的总排班为 Excel：日期在横轴（列），姓名在纵轴（行）
-const exportExcel = () => {
+const exportExcel = async () => {
   if (userList.value.length === 0) {
     showToast('暂无排班数据可导出')
     return
   }
+
+  const ExcelJS = await import('exceljs')
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet(`${month.value}月排班`)
+
   const header = ['姓名', ...days.value.map((d) => `${d.dayOfMonth}日 周${d.weekText}`)]
-  const rows = userList.value.map((user) => [
-    user.realName,
-    ...days.value.map((d) => cellText(matrix.value[d.date][user.id])),
-  ])
-  const sheet = XLSX.utils.aoa_to_sheet([header, ...rows])
+  worksheet.addRow(header)
+
+  userList.value.forEach((user) => {
+    const rowData = [
+      user.realName,
+      ...days.value.map((d) => cellText(matrix.value[d.date][user.id])),
+    ]
+    const row = worksheet.addRow(rowData)
+
+    days.value.forEach((day, dayIndex) => {
+      const shiftType = matrix.value[day.date][user.id]
+      if (shiftType?.color) {
+        const cell = row.getCell(dayIndex + 2)
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: hexToArgb(shiftType.color) },
+        }
+      }
+    })
+  })
+
   // 姓名列宽一点，日期列自适应
-  sheet['!cols'] = [{ wch: 12 }, ...days.value.map(() => ({ wch: 10 }))]
-  const book = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(book, sheet, `${month.value}月排班`)
-  XLSX.writeFile(book, `排班表-${year.value}-${String(month.value).padStart(2, '0')}.xlsx`)
+  worksheet.columns = [{ width: 12 }, ...days.value.map(() => ({ width: 10 }))]
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `排班表-${year.value}-${String(month.value).padStart(2, '0')}.xlsx`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 const initDefaultMonth = async () => {
