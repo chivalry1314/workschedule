@@ -77,6 +77,7 @@ bash scripts/setup-server.sh
 
 在 GitHub 仓库 → **Settings → Secrets and variables → Actions → New repository secret** 中添加：
 
+
 | Name | Value |
 |------|-------|
 | `ALIYUN_HOST` | 服务器公网 IP 或域名 |
