@@ -1,0 +1,92 @@
+name: Deploy to Aliyun ECS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workschedule-web/**'
+      - 'workschedule-api/**'
+      - '.github/workflows/deploy-aliyun.yml'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 构建前端
+        run: |
+          cd workschedule-web
+          npm ci
+          npm run build
+
+      - name: 构建后端
+        run: |
+          cd workschedule-api
+          npm ci
+          npm run build
+          # 移除开发依赖，避免把大体积 devDependencies 打包到服务器
+          npm prune --omit=dev
+
+      - name: 打包部署产物
+        run: |
+          mkdir -p deploy/workschedule-web deploy/workschedule-api
+          cp -r workschedule-web/dist deploy/workschedule-web/
+          cp -r workschedule-api/dist deploy/workschedule-api/
+          cp -r workschedule-api/scripts deploy/workschedule-api/
+          cp -r workschedule-api/node_modules deploy/workschedule-api/
+          cp workschedule-api/ecosystem.config.cjs deploy/workschedule-api/
+          cp workschedule-api/package.json deploy/workschedule-api/
+          cp workschedule-api/package-lock.json deploy/workschedule-api/
+          tar czf deploy.tar.gz deploy
+
+      - name: 上传到阿里云 ECS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT || '22' }}
+          source: 'deploy.tar.gz'
+          target: '/opt/workschedule'
+
+      - name: 在服务器上解压、安装依赖并重启服务
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ALIYUN_HOST }}
+          username: ${{ secrets.ALIYUN_USER }}
+          key: ${{ secrets.ALIYUN_SSH_KEY }}
+          port: ${{ secrets.ALIYUN_SSH_PORT || '22' }}
+          script: |
+            set -e
+            cd /opt/workschedule
+            tar xzf deploy.tar.gz
+            cp -rT deploy/workschedule-web /opt/workschedule/workschedule-web
+            cp -rT deploy/workschedule-api /opt/workschedule/workschedule-api
+            rm -rf deploy deploy.tar.gz
+
+            cd /opt/workschedule/workschedule-api
+
+            # 写入环境变量
+            cat > .env <<'EOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_EXPIRES_IN=${{ secrets.JWT_EXPIRES_IN || '2h' }}
+            PORT=${{ secrets.PORT || '3000' }}
+            CLOUDBASE_ENV_ID=${{ secrets.CLOUDBASE_ENV_ID }}
+            CLOUDBASE_APIKEY=${{ secrets.CLOUDBASE_APIKEY }}
+            EOF
+
+            # 确保数据库目录存在（SQLite 数据文件放在这里，不会被覆盖）
+            mkdir -p data
+
+            # 依赖已在 CI 中安装并裁剪，服务器无需重新 npm install
+            # 如果服务器架构与 CI 不同（如 ARM），请改为在服务器执行 npm ci --omit=dev
+
+            # PM2 启动或平滑重启
+            pm2 start ecosystem.config.cjs || pm2 reload ecosystem.config.cjs
+            pm2 save

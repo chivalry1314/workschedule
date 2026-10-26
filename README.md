@@ -1,6 +1,10 @@
 # 排班管理系统
 
-基于 NestJS + CloudBase SDK + Vue 3 + Vant 的排班管理系统，采用 **EdgeOne Pages** 部署（前端静态托管 + Node Functions 后端），数据库使用 **腾讯云 CloudBase PostgreSQL**。
+基于 NestJS + CloudBase SDK + Vue 3 + Vant 的排班管理系统。
+
+支持两种部署方式：
+- **阿里云 ECS 99 元/年服务器**：前后端统一部署，使用本地 **SQLite** 数据库（零月租、适合小团队）。
+- **EdgeOne Pages**：前端静态托管 + Node Functions 后端，数据库使用 **腾讯云 CloudBase PostgreSQL**。
 
 ## 项目结构
 
@@ -20,8 +24,12 @@ workschedule/
 │   │   └── main.ts            # 本地开发入口
 │   ├── edgeone/
 │   │   └── entry.js           # EdgeOne Pages Node Functions 入口
-│   └── scripts/
-│       └── build-edgeone.mjs  # EdgeOne 函数包构建脚本
+│   ├── scripts/
+│   │   ├── build-edgeone.mjs  # EdgeOne 函数包构建脚本
+│   │   ├── schema-sqlite.sql  # SQLite 建表脚本
+│   │   ├── setup-server.sh    # 阿里云服务器初始化脚本
+│   │   └── nginx.conf         # Nginx 配置模板
+│   └── ecosystem.config.cjs   # PM2 配置
 │
 ├── workschedule-web/          # 前端 Vue 3 项目
 │   └── src/
@@ -69,7 +77,7 @@ npm run start:dev
 - 用户名：`admin`
 - 密码：`Admin1234`
 
-> 注意：本地开发通过 CloudBase SDK 访问 CloudBase PostgreSQL，需在 `.env` 中配置 CloudBase 环境 ID 和 API Key，并确保本地 IP 已加入数据库白名单。
+> 注意：默认使用本地 SQLite 数据库，无需额外配置。如需使用 CloudBase PostgreSQL，请参考 `.env.example` 中的“方式二”配置。
 
 ### 2. 启动前端
 
@@ -106,18 +114,20 @@ npm run build:edgeone
 - [x] 换班申请（发起、同意、拒绝、撤回）
 - [x] 个人排班查看
 - [x] 总排班查看与 Excel 导出
+- [x] 阿里云 ECS / 轻量服务器部署配置
 - [x] EdgeOne Pages 部署配置
 
 ## 部署
 
-详见 [DEPLOY.md](./DEPLOY.md)。
+- 阿里云 ECS / 轻量服务器（推荐 99 元/年机型）：详见 [DEPLOY_ALIYUN.md](./DEPLOY_ALIYUN.md)
+- EdgeOne Pages：详见 [DEPLOY.md](./DEPLOY.md)
 
 ## 技术栈
 
 - **前端**：Vue 3 + Vite + TypeScript + Vant 4 + Pinia + Vue Router
-- **后端**：NestJS + TypeScript + CloudBase SDK（`@cloudbase/js-sdk`）
-- **数据库**：CloudBase PostgreSQL 云数据库
-- **部署**：EdgeOne Pages（静态托管 + Node Functions）
+- **后端**：NestJS + TypeScript
+- **数据库**：SQLite（默认）/ CloudBase PostgreSQL（可选）
+- **部署**：阿里云 ECS + PM2 + Nginx / EdgeOne Pages
 
 ## 注意事项
 

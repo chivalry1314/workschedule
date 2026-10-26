@@ -1,14 +1,35 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  createSqliteClient,
+  runSchema,
+  type SqliteClient,
+  type SqliteQueryBuilder,
+} from '../database/sqlite-client.js';
+
+type DbClient = SqliteClient | any;
+type QueryBuilder = SqliteQueryBuilder | any;
 
 @Injectable()
 export class CloudBaseService implements OnModuleInit {
-  private app: any;
-  private pgClient: any;
+  private client: DbClient;
+  private sqlite: SqliteClient | null = null;
+  private useSqlite = false;
 
   constructor(private config: ConfigService) {}
 
   async onModuleInit() {
+    const databaseUrl = this.config.get('DATABASE_URL');
+
+    if (databaseUrl && databaseUrl.startsWith('sqlite:')) {
+      this.useSqlite = true;
+      const dbPath = databaseUrl.replace(/^sqlite:/, '');
+      this.sqlite = createSqliteClient(dbPath);
+      this.client = this.sqlite;
+      runSchema(this.sqlite);
+      return;
+    }
+
     const cloudbase = (await import('@cloudbase/js-sdk')).default;
     const envId = this.config.get('CLOUDBASE_ENV_ID');
     const accessKey = this.config.get('CLOUDBASE_APIKEY');
@@ -20,20 +41,18 @@ export class CloudBaseService implements OnModuleInit {
       throw new Error('Missing CLOUDBASE_APIKEY in environment variables');
     }
 
-    this.app = cloudbase.init({
-      env: envId,
-      accessKey,
-    });
-
-    // app.rdb() 在 PG 模式下返回 PostgREST 客户端
-    this.pgClient = (this.app as any).rdb();
+    const app = cloudbase.init({ env: envId, accessKey });
+    this.client = app.rdb();
   }
 
   db() {
-    return this.pgClient;
+    return this.client;
   }
 
-  from(table: string) {
-    return this.pgClient.from(table);
+  from(table: string): QueryBuilder {
+    if (this.useSqlite && this.sqlite) {
+      return this.sqlite.from(table);
+    }
+    return this.client.from(table);
   }
 }
