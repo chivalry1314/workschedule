@@ -150,8 +150,15 @@ export class SqliteQueryBuilder {
 
   eq(column: string, value: DbValue): this {
     const params: DbValue[] = [];
-    const sql = buildFilterSql({ column, operator: 'eq', value: String(value ?? '') }, params);
-    this.conditions.push({ sql, params });
+    if (value === null) {
+      this.conditions.push({ sql: `${column} IS NULL`, params });
+    } else if (typeof value === 'boolean') {
+      params.push(value ? 1 : 0);
+      this.conditions.push({ sql: `${column} = ?`, params });
+    } else {
+      params.push(toSqlParam(value));
+      this.conditions.push({ sql: `${column} = ?`, params });
+    }
     return this;
   }
 

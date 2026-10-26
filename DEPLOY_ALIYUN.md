@@ -148,6 +148,82 @@ pm2 save
    ```
 3. 申请 SSL 证书（推荐阿里云免费证书或 certbot），开启 HTTPS。
 
+## 重新绑定域名
+
+如果后续需要更换域名，按以下步骤操作即可：
+
+### 1. 域名解析指向服务器 IP
+
+在域名 DNS 管理后台添加一条 A 记录：
+
+| 主机记录 | 记录类型 | 记录值 | 说明 |
+|---------|---------|--------|------|
+| `www`、`@` 或自定义子域名 | A | 服务器公网 IP | `@` 表示主域名 |
+
+例如要绑定 `workschedule.yourdomain.com`：
+
+- 主机记录：`workschedule`
+- 记录类型：`A`
+- 记录值：`123.45.67.89`
+
+DNS 生效后可用 `nslookup workschedule.yourdomain.com` 检查。
+
+### 2. 修改 Nginx 配置
+
+编辑服务器上的 Nginx 配置文件：
+
+- **Alibaba Cloud Linux**：`/etc/nginx/conf.d/workschedule.conf`
+- **Ubuntu / Debian**：`/etc/nginx/sites-available/workschedule`
+
+将 `server_name` 改为新域名：
+
+```nginx
+server_name workschedule.yourdomain.com;
+```
+
+然后测试并重载：
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
+### 3. 重新申请 SSL 证书
+
+SSL 证书与域名绑定，换域名后必须重新申请。
+
+**使用 acme.sh + 阿里云 DNS：**
+
+```bash
+export Ali_Key="你的 AccessKey ID"
+export Ali_Secret="你的 AccessKey Secret"
+
+~/.acme.sh/acme.sh --issue --dns dns_ali -d workschedule.yourdomain.com
+
+~/.acme.sh/acme.sh --install-cert -d workschedule.yourdomain.com \
+  --key-file /etc/nginx/ssl/workschedule.yourdomain.com.key \
+  --fullchain-file /etc/nginx/ssl/workschedule.yourdomain.com.pem \
+  --reloadcmd "nginx -t && systemctl reload nginx"
+```
+
+然后更新 Nginx 中的证书路径：
+
+```nginx
+ssl_certificate /etc/nginx/ssl/workschedule.yourdomain.com.pem;
+ssl_certificate_key /etc/nginx/ssl/workschedule.yourdomain.com.key;
+```
+
+### 4. 更新 GitHub Actions Secret
+
+如果之前 `ALIYUN_HOST` 填的是 IP 或旧域名，在仓库 **Settings → Secrets and variables → Actions** 中找到 `ALIYUN_HOST` 并更新为新域名。
+
+### 5. 清理旧证书（可选）
+
+```bash
+~/.acme.sh/acme.sh --remove -d 旧域名.com
+```
+
+本项目前端使用相对路径 `/api/v1` 请求接口，换域名后**前端代码无需修改**。
+
 ## 验证部署
 
 1. 访问你的域名，使用默认管理员账号登录：
