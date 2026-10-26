@@ -64,10 +64,13 @@ bash scripts/setup-server.sh
 ```
 
 脚本会完成：
+- 识别系统类型（Ubuntu/Debian 或 Alibaba Cloud Linux/CentOS/RHEL）并安装依赖
 - 安装 Node.js 22 LTS、PM2、Nginx
 - 创建 `/opt/workschedule/logs`、`/opt/workschedule/workschedule-api/data` 目录
 - 配置 Nginx 站点（需手动修改 `server_name` 为你的域名）
 - 放行 80/443 端口
+
+> 目前脚本已适配 Alibaba Cloud Linux 的 `yum`/`dnf` 包管理器和 `/etc/nginx/conf.d/` 配置路径。
 
 ## 首次部署
 
@@ -129,9 +132,18 @@ pm2 save
 
 1. 修改 `workschedule-api/scripts/nginx.conf` 中的 `server_name` 为你的域名。
 2. 复制到服务器：
+
+   **Ubuntu / Debian：**
    ```bash
    cp /opt/workschedule/workschedule-api/scripts/nginx.conf /etc/nginx/sites-available/workschedule
    ln -sf /etc/nginx/sites-available/workschedule /etc/nginx/sites-enabled/workschedule
+   rm -f /etc/nginx/sites-enabled/default
+   nginx -t && systemctl reload nginx
+   ```
+
+   **Alibaba Cloud Linux / CentOS / RHEL：**
+   ```bash
+   cp /opt/workschedule/workschedule-api/scripts/nginx.conf /etc/nginx/conf.d/workschedule.conf
    nginx -t && systemctl reload nginx
    ```
 3. 申请 SSL 证书（推荐阿里云免费证书或 certbot），开启 HTTPS。
