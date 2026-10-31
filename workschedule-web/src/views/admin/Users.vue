@@ -26,6 +26,19 @@
         <van-field label="角色" is-link readonly :model-value="roleName" @click="showRolePicker = true" />
         <van-field v-model="form.phone" label="手机号" placeholder="可选" />
         <van-field v-model="form.remark" label="备注" placeholder="可选" />
+        <van-field name="status" label="是否有效">
+          <template #input>
+            <van-switch v-model="form.status" :active-value="1" :inactive-value="0" />
+          </template>
+        </van-field>
+        <van-field
+          label="失效日期"
+          is-link
+          readonly
+          :model-value="inactiveDateText"
+          placeholder="用户失效时填写"
+          @click="showDatePicker = true"
+        />
         <div class="form-actions">
           <van-button round block type="primary" @click="onSubmit">保存</van-button>
           <van-button v-if="editing" round block type="warning" @click="openResetPassword">重置密码</van-button>
@@ -40,6 +53,15 @@
         :default-index="roleIndex"
         @confirm="onRoleSelect"
         @cancel="showRolePicker = false"
+      />
+    </van-popup>
+
+    <van-popup v-model:show="showDatePicker" position="bottom" round>
+      <van-date-picker
+        v-model="datePickerValue"
+        title="选择失效日期"
+        @confirm="onDateConfirm"
+        @cancel="showDatePicker = false"
       />
     </van-popup>
 
@@ -79,11 +101,16 @@ const form = reactive({
   roleId: 0,
   phone: '',
   remark: '',
+  status: 1,
+  inactiveDate: '',
 })
 
 const resetPwdForm = reactive({
   password: '',
 })
+
+const showDatePicker = ref(false)
+const datePickerValue = ref<string[]>([])
 
 const roleColumns = computed(() => {
   return roles.value.map((r: any) => ({ text: r.name, value: Number(r.id) }))
@@ -92,6 +119,10 @@ const roleColumns = computed(() => {
 const roleName = computed(() => {
   const role = roles.value.find((r: any) => Number(r.id) === form.roleId)
   return role?.name || '请选择'
+})
+
+const inactiveDateText = computed(() => {
+  return form.inactiveDate || '请选择'
 })
 
 const roleIndex = computed(() => {
@@ -115,6 +146,9 @@ const resetForm = () => {
   form.roleId = 0
   form.phone = ''
   form.remark = ''
+  form.status = 1
+  form.inactiveDate = ''
+  datePickerValue.value = []
 }
 
 const create = () => {
@@ -134,6 +168,9 @@ const edit = (user: any) => {
   form.roleId = Number(user.roleId)
   form.phone = user.phone || ''
   form.remark = user.remark || ''
+  form.status = user.status ?? 1
+  form.inactiveDate = user.inactiveDate || ''
+  datePickerValue.value = form.inactiveDate ? form.inactiveDate.split('-') : []
   showCreate.value = true
 }
 
@@ -142,16 +179,22 @@ const onRoleSelect = ({ selectedOptions }: any) => {
   showRolePicker.value = false
 }
 
+const onDateConfirm = ({ selectedValues }: any) => {
+  form.inactiveDate = selectedValues.join('-')
+  showDatePicker.value = false
+}
+
 const onSubmit = async () => {
+  const payload = {
+    realName: form.realName,
+    roleId: form.roleId,
+    phone: form.phone,
+    remark: form.remark,
+    status: form.status,
+    inactiveDate: form.inactiveDate || null,
+  }
   if (editing.value) {
-    await withLoading(() =>
-      updateUser(form.id, {
-        realName: form.realName,
-        roleId: form.roleId,
-        phone: form.phone,
-        remark: form.remark,
-      }),
-    )
+    await withLoading(() => updateUser(form.id, payload))
   } else {
     await withLoading(() =>
       createUser({
@@ -161,6 +204,8 @@ const onSubmit = async () => {
         roleId: form.roleId,
         phone: form.phone,
         remark: form.remark,
+        status: form.status,
+        inactiveDate: form.inactiveDate || null,
       }),
     )
   }

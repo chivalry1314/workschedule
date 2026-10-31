@@ -78,6 +78,17 @@ const router = createRouter({
           component: () => import('@/views/admin/Settings.vue'),
           meta: { requiresAdmin: true },
         },
+        {
+          path: 'admin/schedule-templates',
+          name: 'AdminScheduleTemplates',
+          component: () => import('@/views/admin/ScheduleTemplates.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
+          path: 'admin/schedule-statistics',
+          name: 'AdminScheduleStatistics',
+          component: () => import('@/views/admin/ScheduleStatistics.vue'),
+        },
       ],
     },
   ],

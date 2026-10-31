@@ -29,12 +29,14 @@
         <van-cell title="我的排班" icon="calendar-o" to="/my-schedule" @click="showMenu = false" />
         <van-cell title="总排班" icon="friends-o" to="/all-schedule" @click="showMenu = false" />
         <van-cell title="换班申请" icon="exchange" to="/swaps" @click="showMenu = false" />
+        <van-cell title="排班统计" icon="chart-trending-o" to="/admin/schedule-statistics" @click="showMenu = false" />
         <template v-if="userStore.isAdmin">
           <van-divider>管理</van-divider>
           <van-cell title="人员管理" icon="manager-o" to="/admin/users" @click="showMenu = false" />
           <van-cell title="角色管理" icon="cluster-o" to="/admin/roles" @click="showMenu = false" />
           <van-cell title="值班类型" icon="label-o" to="/admin/shift-types" @click="showMenu = false" />
           <van-cell title="排班规则" icon="orders-o" to="/admin/schedule-rules" @click="showMenu = false" />
+          <van-cell title="初始化模板" icon="description-o" to="/admin/schedule-templates" @click="showMenu = false" />
           <van-cell title="系统设置" icon="setting-o" to="/admin/settings" @click="showMenu = false" />
         </template>
         <div class="logout-wrap">

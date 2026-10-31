@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
+  IsDateString,
   MinLength,
   Matches,
 } from 'class-validator';
@@ -42,4 +43,8 @@ export class CreateUserDto {
   @IsInt()
   @IsOptional()
   status?: number;
+
+  @IsDateString()
+  @IsOptional()
+  inactiveDate?: string;
 }

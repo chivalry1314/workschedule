@@ -12,6 +12,8 @@ import { SwapsModule } from './swaps/swaps.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { ScheduleRulesModule } from './schedule-rules/schedule-rules.module.js';
 import { ScheduleWindowsModule } from './schedule-windows/schedule-windows.module.js';
+import { ScheduleTemplatesModule } from './schedule-templates/schedule-templates.module.js';
+import { ScheduleStatisticsModule } from './schedule-statistics/schedule-statistics.module.js';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { ScheduleWindowsModule } from './schedule-windows/schedule-windows.modul
     SettingsModule,
     ScheduleRulesModule,
     ScheduleWindowsModule,
+    ScheduleTemplatesModule,
+    ScheduleStatisticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -9,6 +9,7 @@ export interface CreateUserForm {
   remark?: string
   isAdmin?: boolean
   status?: number
+  inactiveDate?: string | null
 }
 
 export interface UpdateUserForm {
@@ -18,6 +19,7 @@ export interface UpdateUserForm {
   remark?: string
   isAdmin?: boolean
   status?: number
+  inactiveDate?: string | null
 }
 
 export const getUsers = (params?: any) => request.get('/users', { params })

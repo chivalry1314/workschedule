@@ -40,10 +40,46 @@ CREATE TABLE IF NOT EXISTS users (
   remark VARCHAR(255),
   is_admin BOOLEAN DEFAULT FALSE,
   status INT DEFAULT 1,
+  inactive_date DATE,
   first_login BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS schedule_templates (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  status INT DEFAULT 1,
+  template_type INT DEFAULT 1,
+  replace_shift_type_id BIGINT,
+  replaced_shift_type_id BIGINT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS schedule_template_items (
+  id BIGSERIAL PRIMARY KEY,
+  template_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  day_of_week INT NOT NULL,
+  shift_type_id BIGINT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(template_id, user_id, day_of_week)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_items_template ON schedule_template_items(template_id);
+
+CREATE TABLE IF NOT EXISTS schedule_template_target_users (
+  id BIGSERIAL PRIMARY KEY,
+  template_id BIGINT NOT NULL,
+  user_id BIGINT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(template_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_target_users_template ON schedule_template_target_users(template_id);
 
 CREATE TABLE IF NOT EXISTS schedules (
   id BIGSERIAL PRIMARY KEY,

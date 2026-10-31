@@ -24,6 +24,7 @@ export class UsersService {
       remark: row.remark,
       isAdmin: row.is_admin,
       status: row.status,
+      inactiveDate: row.inactive_date,
       firstLogin: row.first_login,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -96,6 +97,7 @@ export class UsersService {
       remark: dto.remark ?? null,
       is_admin: dto.isAdmin ?? false,
       status: dto.status ?? 1,
+      inactive_date: dto.inactiveDate ?? null,
       first_login: true,
     };
 
@@ -103,7 +105,7 @@ export class UsersService {
       .from('users')
       .insert(insert)
       .select(
-        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,first_login,created_at,updated_at',
+        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,inactive_date,first_login,created_at,updated_at',
       );
     if (error) throw error;
 
@@ -127,7 +129,7 @@ export class UsersService {
     let builder: any = this.cloudbase
       .from('users')
       .select(
-        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,first_login,created_at,updated_at',
+        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,inactive_date,first_login,created_at,updated_at',
       );
 
     if (query.keyword) {
@@ -175,7 +177,7 @@ export class UsersService {
     const { data, error } = await this.cloudbase
       .from('users')
       .select(
-        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,first_login,created_at,updated_at',
+        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,inactive_date,first_login,created_at,updated_at',
       )
       .eq('id', Number(id))
       .limit(1);
@@ -190,7 +192,7 @@ export class UsersService {
     const { data, error } = await this.cloudbase
       .from('users')
       .select(
-        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,first_login,created_at,updated_at',
+        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,inactive_date,first_login,created_at,updated_at',
       )
       .eq('username', username)
       .eq('status', 1)
@@ -207,7 +209,7 @@ export class UsersService {
     const { data, error } = await this.cloudbase
       .from('users')
       .select(
-        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,first_login,created_at,updated_at',
+        'id,username,password_hash,real_name,role_id,phone,remark,is_admin,status,inactive_date,first_login,created_at,updated_at',
       )
       .eq('id', Number(id))
       .limit(1);
@@ -229,6 +231,7 @@ export class UsersService {
     if (dto.remark !== undefined) update.remark = dto.remark ?? null;
     if (dto.isAdmin !== undefined) update.is_admin = dto.isAdmin;
     if (dto.status !== undefined) update.status = dto.status;
+    if (dto.inactiveDate !== undefined) update.inactive_date = dto.inactiveDate ?? null;
 
     if (Object.keys(update).length === 0) return this.findOne(id);
 

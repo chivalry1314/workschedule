@@ -77,6 +77,22 @@
         <span>初始化排班</span>
         <van-button size="small" @click="showInitPicker = false">取消</van-button>
       </div>
+      <div v-if="activeTemplates.length > 0" class="template-section">
+        <div class="section-title">按模板初始化</div>
+        <div class="template-options">
+          <van-button
+            v-for="template in activeTemplates"
+            :key="template.id"
+            class="template-option"
+            :class="{ active: selectedTemplateId === template.id }"
+            :type="selectedTemplateId === template.id ? 'primary' : 'default'"
+            @click="selectedTemplateId = template.id; selectedInitShiftTypeId = null"
+          >
+            {{ template.name }}
+          </van-button>
+        </div>
+      </div>
+      <div class="section-title">按统一班次初始化</div>
       <div class="shift-options">
         <van-button
           v-for="type in shiftTypes"
@@ -84,7 +100,7 @@
           class="shift-option"
           :class="{ active: selectedInitShiftTypeId === type.id }"
           :style="initOptionStyle(type)"
-          @click="selectedInitShiftTypeId = type.id"
+          @click="selectedInitShiftTypeId = type.id; selectedTemplateId = null"
         >
           {{ type.name }}
         </van-button>
@@ -93,7 +109,7 @@
         <van-button
           block
           type="primary"
-          :disabled="!selectedInitShiftTypeId"
+          :disabled="!selectedInitShiftTypeId && !selectedTemplateId"
           @click="confirmInit"
         >
           确定
@@ -118,6 +134,7 @@ import { showToast, showConfirmDialog } from 'vant'
 
 import { getAllSchedules, saveUserSchedules, initializeSchedules, clearAllSchedules } from '@/api/schedule'
 import { getShiftTypes } from '@/api/shiftType'
+import { getActiveScheduleTemplates } from '@/api/scheduleTemplate'
 import { getDefaultScheduleMonth } from '@/api/settings'
 import { useUserStore } from '@/stores/user'
 import { withLoading } from '@/utils/loading'
@@ -136,6 +153,8 @@ const pickerUser = ref<any>(null)
 const shiftTypes = ref<any[]>([])
 const showInitPicker = ref(false)
 const selectedInitShiftTypeId = ref<number | null>(null)
+const activeTemplates = ref<any[]>([])
+const selectedTemplateId = ref<number | null>(null)
 
 interface DayInfo {
   date: string
@@ -237,13 +256,37 @@ const initOptionStyle = (type: any) => {
 
 const openInitPicker = async () => {
   await ensureShiftTypes()
+  activeTemplates.value = await getActiveScheduleTemplates()
   selectedInitShiftTypeId.value = null
+  selectedTemplateId.value = null
   showInitPicker.value = true
 }
 
 const confirmInit = async () => {
+  if (selectedTemplateId.value) {
+    const template = activeTemplates.value.find((t: any) => t.id === selectedTemplateId.value)
+    const templateName = template?.name || '选中模板'
+    showInitPicker.value = false
+    await showConfirmDialog({
+      title: '确认初始化',
+      message: `确定要按模板【${templateName}】初始化 ${year.value}年${month.value}月 的排班吗？此操作会覆盖已有排班。`,
+    })
+    await withLoading(
+      () =>
+        initializeSchedules({
+          year: year.value,
+          month: month.value,
+          templateId: selectedTemplateId.value!,
+        }),
+      '初始化中...',
+    )
+    showToast('初始化成功')
+    await loadData()
+    return
+  }
+
   if (!selectedInitShiftTypeId.value) {
-    showToast('请选择值班类型')
+    showToast('请选择值班类型或模板')
     return
   }
   const shiftTypeId = selectedInitShiftTypeId.value
@@ -508,6 +551,28 @@ watch(() => [year.value, month.value], loadData)
   padding: 16px;
   font-size: 15px;
   font-weight: bold;
+}
+
+.section-title {
+  padding: 0 16px 12px;
+  font-size: 14px;
+  color: #666;
+  font-weight: bold;
+}
+
+.template-section {
+  margin-bottom: 12px;
+}
+
+.template-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0 16px 24px;
+}
+
+.template-option {
+  min-width: 80px;
 }
 
 .shift-options {

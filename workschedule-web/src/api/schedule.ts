@@ -23,8 +23,8 @@ export const saveUserSchedules = (userId: number, data: { year: number; month: n
 export const clearUserSchedules = (userId: number, year: number, month: number) =>
   request.post(`/schedules/users/${userId}/clear`, null, { params: { year, month } })
 
-// 管理员初始化某月排班：将非管理员人员的当月所有排班设置为指定值班类型
-export const initializeSchedules = (data: { year: number; month: number; shiftTypeId: number }) =>
+// 管理员初始化某月排班：将非管理员人员的当月所有排班设置为指定值班类型，或按模板初始化
+export const initializeSchedules = (data: { year: number; month: number; shiftTypeId?: number; templateId?: number }) =>
   request.post('/schedules/initialize', data)
 
 // 管理员清空某月所有非管理员人员的排班

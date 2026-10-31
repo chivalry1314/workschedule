@@ -3,6 +3,7 @@ import {
   IsOptional,
   IsBoolean,
   IsInt,
+  IsDateString,
 } from 'class-validator';
 
 export class UpdateUserDto {
@@ -29,4 +30,8 @@ export class UpdateUserDto {
   @IsInt()
   @IsOptional()
   status?: number;
+
+  @IsDateString()
+  @IsOptional()
+  inactiveDate?: string;
 }

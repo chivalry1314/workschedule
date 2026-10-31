@@ -39,10 +39,46 @@ CREATE TABLE IF NOT EXISTS users (
   remark VARCHAR(255),
   is_admin INTEGER DEFAULT 0,
   status INTEGER DEFAULT 1,
+  inactive_date DATE,
   first_login INTEGER DEFAULT 1,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS schedule_templates (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name VARCHAR(128) NOT NULL,
+  status INTEGER DEFAULT 1,
+  template_type INTEGER DEFAULT 1,
+  replace_shift_type_id INTEGER,
+  replaced_shift_type_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS schedule_template_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  day_of_week INTEGER NOT NULL,
+  shift_type_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(template_id, user_id, day_of_week)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_items_template ON schedule_template_items(template_id);
+
+CREATE TABLE IF NOT EXISTS schedule_template_target_users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  template_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(template_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_template_target_users_template ON schedule_template_target_users(template_id);
 
 CREATE TABLE IF NOT EXISTS schedules (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
